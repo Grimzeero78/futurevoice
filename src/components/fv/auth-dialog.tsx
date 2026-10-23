@@ -1,0 +1,257 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Loader2, Hourglass, MailCheck, KeyRound, MailOpen } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
+import { api } from '@/lib/fv-client'
+import { useFV, type AuthMode, type SessionUser } from '@/lib/fv-store'
+
+type ApiUser = Omit<SessionUser, 'stats'>
+
+export function AuthDialog() {
+  const open = useFV((s) => s.authOpen)
+  const mode = useFV((s) => s.authMode)
+  const resetToken = useFV((s) => s.resetToken)
+  const closeAuth = useFV((s) => s.closeAuth)
+  const openAuth = useFV((s) => s.openAuth)
+  const startPasswordReset = useFV((s) => s.startPasswordReset)
+  const refreshSession = useFV((s) => s.refreshSession)
+  const navigate = useFV((s) => s.navigate)
+
+  const [busy, setBusy] = useState(false)
+  const [registered, setRegistered] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
+  const [resetInfo, setResetInfo] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setRegistered(null)
+      setResetInfo(null)
+    }
+  }, [open, mode])
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const values = Object.fromEntries(fd.entries())
+    setBusy(true)
+    try {
+      if (mode === 'register') {
+        const data = await api<{ user: ApiUser; emailSent: boolean; devVerificationToken?: string; devNote?: string }>('/api/auth/register', {
+          method: 'POST',
+          json: values,
+        })
+        await refreshSession()
+        setRegistered({ email: data.user.email, sent: data.emailSent, token: data.devVerificationToken, note: data.devNote })
+        toast({ title: 'Welcome to Future Voices', description: 'Your account is ready.' })
+      } else if (mode === 'login') {
+        await api('/api/auth/login', { method: 'POST', json: values })
+        await refreshSession()
+        closeAuth()
+        toast({ title: 'Signed in', description: 'The future missed you.' })
+      } else if (mode === 'forgot') {
+        const data = await api<{ ok: boolean; emailSent: boolean; message: string; devResetToken?: string; devNote?: string }>('/api/auth/forgot-password', {
+          method: 'POST',
+          json: values,
+        })
+        setResetInfo({ email: String(values.email), sent: data.emailSent, token: data.devResetToken, note: data.devNote })
+      }
+    } catch (err) {
+      toast({ title: 'That did not work', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verifyNow(token: string) {
+    try {
+      await api('/api/auth/verify-email', { method: 'POST', json: { token } })
+      await refreshSession()
+      toast({ title: 'Email verified', description: 'Your voice is fully on record now.' })
+      closeAuth()
+      navigate({ name: 'compose' })
+    } catch (err) {
+      toast({ title: 'Verification failed', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
+    }
+  }
+
+  async function doReset(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    const values = Object.fromEntries(fd.entries())
+    setBusy(true)
+    try {
+      await api('/api/auth/reset-password', { method: 'POST', json: values })
+      toast({ title: 'Password updated', description: 'Sign in with your new password.' })
+      setResetInfo(null)
+      openAuth('login')
+    } catch (err) {
+      toast({ title: 'Reset failed', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const titles: Record<AuthMode, [string, string]> = {
+    login: ['Welcome back', 'Sign in to open your vault of capsules.'],
+    register: ['Claim your voice in the future', 'Create an account to seal your first capsule.'],
+    forgot: ['Reset your password', 'Enter your email and we will send a reset link.'],
+    reset: ['Choose a new password', 'Your reset link is valid — set a new password below.'],
+  }
+
+  const newPasswordForm = (token: string) => (
+    <form onSubmit={doReset} className="space-y-4">
+      <input type="hidden" name="token" value={token} />
+      <div className="space-y-2">
+        <Label htmlFor="newPassword">New password</Label>
+        <Input id="newPassword" name="newPassword" type="password" required minLength={8} placeholder="At least 8 characters" />
+      </div>
+      <Button type="submit" className="w-full" disabled={busy}>
+        {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Set new password
+      </Button>
+      <Button type="button" variant="ghost" className="w-full" onClick={() => openAuth('login')}>
+        Back to sign in
+      </Button>
+    </form>
+  )
+
+  const inboxNote = (email: string) => (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-500/5 p-3 text-sm">
+        <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+        <div>
+          <p className="font-medium">Check your inbox</p>
+          <p className="mt-1 text-muted-foreground">
+            A link was sent to <span className="font-medium text-foreground">{email}</span>. Open it on this device to continue.
+          </p>
+        </div>
+      </div>
+      <Button variant="ghost" className="w-full" onClick={() => openAuth('login')}>Back to sign in</Button>
+    </div>
+  )
+
+  const fallbackTokenNote = (token: string, note?: string, onContinue?: () => void) => (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
+        <p className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+          <MailOpen className="h-3.5 w-3.5" /> Server mail not configured
+        </p>
+        <p>{note ?? 'This server has no SMTP configured, so the link is shown here instead of being emailed.'}</p>
+        <code className="mt-2 block break-all rounded bg-muted px-2 py-1 font-mono text-[10px]">{token}</code>
+      </div>
+      {onContinue && (
+        <Button className="w-full" onClick={onContinue}>Continue</Button>
+      )}
+    </div>
+  )
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && closeAuth()}>
+      <DialogContent className="fv-scroll max-h-[90vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Hourglass className="h-6 w-6 text-primary" aria-hidden />
+          </div>
+          <DialogTitle className="font-display text-center text-xl">{titles[mode][0]}</DialogTitle>
+          <DialogDescription className="text-center">{titles[mode][1]}</DialogDescription>
+        </DialogHeader>
+
+        {/* ── reset mode: arrived from an email link ── */}
+        {mode === 'reset' && resetToken ? (
+          newPasswordForm(resetToken)
+        ) : mode === 'reset' ? (
+          <div className="space-y-4 text-center text-sm text-muted-foreground">
+            <p>This reset link is missing its token. Request a fresh one.</p>
+            <Button variant="outline" className="w-full" onClick={() => openAuth('forgot')}>Request a new link</Button>
+          </div>
+        ) : registered ? (
+          /* ── post-registration: email verification step ── */
+          registered.sent ? (
+            inboxNote(registered.email)
+          ) : (
+            <div className="space-y-4">
+              {fallbackTokenNote(registered.token ?? '', registered.note, () => registered.token && verifyNow(registered.token))}
+              <Button variant="ghost" className="w-full" onClick={closeAuth}>
+                I&apos;ll verify later
+              </Button>
+            </div>
+          )
+        ) : resetInfo ? (
+          /* ── password reset step ── */
+          resetInfo.sent ? (
+            inboxNote(resetInfo.email)
+          ) : resetInfo.token ? (
+            <div className="space-y-4">
+              {fallbackTokenNote(resetInfo.token, resetInfo.note, () => startPasswordReset(resetInfo.token!))}
+            </div>
+          ) : (
+            <div className="space-y-4 text-center text-sm text-muted-foreground">
+              <p>No account matched that email — check for typos.</p>
+              <Button variant="outline" className="w-full" onClick={() => openAuth('forgot')}>Try another email</Button>
+            </div>
+          )
+        ) : (
+          /* ── login / register / forgot forms ── */
+          <form onSubmit={submit} className="space-y-4">
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Display name</Label>
+                <Input id="displayName" name="displayName" required minLength={2} maxLength={40} placeholder="e.g. Amara of 2026" autoComplete="name" />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
+            </div>
+            {mode !== 'forgot' && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password" name="password" type="password" required
+                  minLength={mode === 'register' ? 8 : undefined}
+                  placeholder={mode === 'register' ? 'At least 8 characters' : 'Your password'}
+                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                />
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {mode === 'login' ? 'Sign in' : mode === 'register' ? 'Create account' : 'Send reset link'}
+            </Button>
+
+            <Separator />
+
+            <div className="flex flex-col gap-1 text-center text-sm text-muted-foreground">
+              {mode === 'login' && (
+                <>
+                  <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('register')}>
+                    New here? Create an account
+                  </button>
+                  <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('forgot')}>
+                    Forgot your password?
+                  </button>
+                </>
+              )}
+              {mode === 'register' && (
+                <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('login')}>
+                  Already have an account? Sign in
+                </button>
+              )}
+              {mode === 'forgot' && (
+                <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('login')}>
+                  Back to sign in
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}

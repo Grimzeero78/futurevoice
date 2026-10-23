@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users & Auth ────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  bio          String?
+  role         String    @default("USER") // USER | ADMIN
+  emailVerified DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions  Session[]
+  tokens    AuthToken[]
+  posts     Post[]
+  media     Media[]
+  reactions Reaction[]
+  reports   Report[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// One table for both email-verification and password-reset tokens
+model AuthToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // EMAIL_VERIFY | PASSWORD_RESET
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// ─── Content ─────────────────────────────────────────────────────
+
+model Post {
+  id              String    @id @default(cuid())
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title           String
+  content         String? // the written "letter to the future"
+  privacy         String    @default("PRIVATE") // PRIVATE | PUBLIC
+  status          String    @default("PUBLISHED") // SEALED (time-locked) | PUBLISHED
+  releaseAt       DateTime? // time-lock: visible to others only after this date
+  recipientTag    String    @default("NONE") // NONE | FUTURE_SELF | FUTURE_CHILD | GRANDCHILDREN | PEOPLE_2078 | FUTURE_GENERATIONS | CUSTOM
+  customRecipient String?
+  appearInArchive Boolean   @default(true)
+  hidden          Boolean   @default(false) // set by moderation
+  hiddenReason    String?
+  views           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  media     Media[]
+  reactions Reaction[]
+  reports   Report[]
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  postId      String?
+  post        Post?    @relation(fields: [postId], references: [id])
+  kind        String // IMAGE | VIDEO
+  filename    String // original file name
+  storagePath String // server-side path
+  mimeType    String
+  size        Float    // bytes (float keeps precision far beyond 2 GB — no size cap)
+  createdAt   DateTime @default(now())
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // HEART | STAR | CLOCK | SPARKLES
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Report {
+  id         String    @id @default(cuid())
+  postId     String
+  post       Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterId String?
+  reporter   User?     @relation(fields: [reporterId], references: [id])
+  reason     String // SPAM | INAPPROPRIATE | COPYRIGHT | OTHER
+  details    String?
+  status     String    @default("OPEN") // OPEN | RESOLVED
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+}

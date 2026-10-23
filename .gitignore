@@ -1,0 +1,49 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# next.js build output
+.next/
+out/
+build/
+
+# environment secrets — never commit your .env
+.env
+.env.local
+.env.*.local
+
+# keep the documented example
+!.env.example
+
+# database (created by `npm run db:push`, contains user data)
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# uploaded media (private user content — never commit)
+uploads/*
+!uploads/.gitkeep
+
+# data volume (Docker)
+/data/
+
+# logs & misc
+*.log
+dev.log
+server.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

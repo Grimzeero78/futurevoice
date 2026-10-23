@@ -1,0 +1,22 @@
+services:
+  future-voices:
+    build: .
+    container_name: future-voices
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - fv-data:/data
+    environment:
+      # Public URL used in verification / reset emails
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      # Optional SMTP for real emails (see .env.example)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_SECURE=${SMTP_SECURE:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - MAIL_FROM=${MAIL_FROM:-}
+
+volumes:
+  fv-data:
