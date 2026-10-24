@@ -55,6 +55,32 @@ npm start            # respects PORT and HOSTNAME env vars
 Open `http://localhost:3000`. **The first account you register becomes the
 admin/moderator.** From then on, new accounts are regular users.
 
+> **Good to know:** `npm run dev` and `npm start` automatically sync the
+> database schema before launching (`predev` / `prestart` run
+> `prisma db push`), and `npm install` always regenerates the Prisma client
+> (`postinstall`). After a `git pull`, just `npm install` and `npm run build`
+> and you are up to date.
+
+### Troubleshooting — "the site won't open" after `git pull`
+
+The three stale things after pulling new code are the **build**, the
+**Prisma client** and the **database schema**. Run this once after every
+pull and the app comes back:
+
+```bash
+git pull
+npm install          # also regenerates the Prisma client (postinstall)
+npm run build        # rebuild .next — NEVER run npm start on an old build
+npm start
+```
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| White page / "application error" / missing chunks | old `.next` build | `npm run build` then `npm start` |
+| Capsule pages or images fail with 500 | DB schema older than the code (missing `Heir` table) | `npm run db:push` (now automatic on `npm start`/`dev`) |
+| `Unknown argument 'heir'` in the terminal | Prisma client older than the schema | `npm install` (runs `prisma generate`) |
+| Port already in use | previous server still running | close it, or `npm start` with a different `PORT=3001` |
+
 ### Keeping it alive (recommended)
 
 ```bash

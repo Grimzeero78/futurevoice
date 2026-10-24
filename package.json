@@ -8,9 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
+    "predev": "prisma db push --skip-generate",
     "dev": "next dev",
-    "build": "next build",
+    "prestart": "prisma db push --skip-generate",
     "start": "next start",
+    "build": "next build",
+    "postinstall": "prisma generate",
     "lint": "eslint .",
     "db:push": "prisma db push",
     "db:generate": "prisma generate"
