@@ -21,21 +21,34 @@ const fadeUp = {
   transition: { duration: 0.5 },
 }
 
-const STEPS = [
+const WALKTHROUGH = [
   {
-    icon: Mail,
-    title: 'Write, record or snap',
-    body: 'A letter, a video message, a photograph — or all three. Anything you want the future to hold in its hands.',
+    img: '/demo/steps/step-1-write.png',
+    title: 'Write it, snap it, seal it in',
+    body: 'A letter, photographs, a video or a voice note — attach everything you want the future to hold. No size limits, no file limits.',
+    caption: 'The real compose form: Grace is writing to her grandchildren with a family photo attached.',
+    alt: 'Compose form with a letter to grandchildren and a family photograph attached',
   },
   {
-    icon: Lock,
-    title: 'Seal it with a date',
-    body: 'Choose the moment it opens: a birthday in 2036, your grandchild\u2019s 18th — or a full millennium from now, in the year 3026. Before then, nobody can peek.',
+    img: '/demo/steps/step-2-keepers.png',
+    title: 'Choose who will see it',
+    body: 'Just you? Your children & named keepers? Or everyone? Add the exact emails of the people who should inherit it — plus one family passphrase only you all know.',
+    caption: 'Choosing “My children & keepers”: Wanjiku and Kiama are named, and the family passphrase is set.',
+    alt: 'Audience chooser with My children and keepers selected, showing keeper emails and a family passphrase',
   },
   {
-    icon: Hourglass,
-    title: 'The future opens it',
-    body: 'When the date arrives, the capsule unseals itself — landing in the public archive or waiting privately for its recipient.',
+    img: '/demo/steps/step-3-seal.png',
+    title: 'Seal it until the day comes',
+    body: 'Pick any date: a birthday in 2056, a graduation in 2078 — or the year 3026, a full millennium away. Until then, not even a whisper escapes.',
+    caption: 'The time lock: this capsule stays sealed until Monday, June 12, 2056 — in 29 years.',
+    alt: 'Time lock settings showing a seal date of June 12, 2056',
+  },
+  {
+    img: '/demo/steps/step-4-legacy.jpg',
+    title: 'On the day, it finds them',
+    body: 'When the seal breaks we email every keeper. They sign in, speak the family word — and your voice becomes theirs to keep forever.',
+    caption: 'Sealed and counting: 29 years and 7 months to go. One day Wanjiku and Kiama will open this.',
+    alt: 'Sealed capsule with a countdown of 29 years and 7 months above the family photograph',
   },
 ]
 
@@ -218,6 +231,7 @@ export function Landing() {
   const [recent, setRecent] = useState<SerializedPost[]>([])
   const [total, setTotal] = useState<number | null>(null)
   const [demoPhase, setDemoPhase] = useState<DemoPhase>('closed')
+  const [wStep, setWStep] = useState(0)
 
   useEffect(() => {
     api<{ posts: SerializedPost[]; total: number }>('/api/posts?sort=newest')
@@ -351,28 +365,66 @@ export function Landing() {
         </div>
       </section>
 
-      {/* ─── How it works ─── */}
+      {/* ─── See exactly how it's done (photo walkthrough) ─── */}
       <section className="border-t">
         <div className="mx-auto max-w-6xl px-4 py-16">
           <motion.div {...fadeUp} className="mb-10 text-center">
-            <h2 className="font-display text-3xl font-bold sm:text-4xl">How a voice travels 50 years</h2>
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+              <ImageIcon className="h-3.5 w-3.5" aria-hidden /> Real screenshots — no mockups
+            </span>
+            <h2 className="font-display text-3xl font-bold sm:text-4xl">See exactly how it&apos;s done.</h2>
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-              Three steps stand between today&apos;s feelings and tomorrow&apos;s ears.
+              Four steps, about ten minutes — and a message that outlives us all.
+              This is the actual form your grandchildren will thank you for filling.
             </p>
           </motion.div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <motion.div key={s.title} {...fadeUp} transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="relative rounded-xl border bg-card p-6 shadow-sm">
-                <span className="absolute right-5 top-5 font-display text-4xl font-bold text-primary/15">{i + 1}</span>
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-                  <s.icon className="h-5 w-5 text-primary" aria-hidden />
-                </div>
-                <h3 className="font-display text-lg font-semibold">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-              </motion.div>
-            ))}
-          </div>
+
+          <motion.div {...fadeUp} className="grid items-start gap-6 lg:grid-cols-[1fr_1.55fr]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1" role="tablist" aria-label="Walkthrough steps">
+              {WALKTHROUGH.map((w, i) => (
+                <button
+                  key={w.title}
+                  role="tab"
+                  aria-selected={wStep === i}
+                  onClick={() => setWStep(i)}
+                  className={`rounded-xl border p-4 text-left transition-all ${wStep === i ? 'border-primary bg-primary/5 shadow-sm' : 'bg-card hover:bg-secondary/50'}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold ${wStep === i ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
+                      {i + 1}
+                    </span>
+                    <span className="font-display font-semibold">{w.title}</span>
+                  </span>
+                  <span className={`mt-1.5 block text-sm leading-relaxed text-muted-foreground ${wStep === i ? '' : 'hidden sm:block'}`}>
+                    {w.body}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <div className="overflow-hidden rounded-2xl border shadow-xl">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={WALKTHROUGH[wStep].img}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    src={WALKTHROUGH[wStep].img}
+                    alt={WALKTHROUGH[wStep].alt}
+                    className="w-full"
+                    loading="lazy"
+                  />
+                </AnimatePresence>
+              </div>
+              <p className="mt-3 text-center text-sm text-muted-foreground">{WALKTHROUGH[wStep].caption}</p>
+            </div>
+          </motion.div>
+
+          <motion.div {...fadeUp} className="mt-10 text-center">
+            <DemoCTA label="Start yours now — it takes ten minutes" />
+          </motion.div>
         </div>
       </section>
 
