@@ -21,8 +21,22 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await db.user.findUnique({ where: { email } })
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      // distinguish a Google-only account from a wrong password below
+      const googleOnly = user && !user.passwordHash
+      if (googleOnly) {
+        return NextResponse.json(
+          { error: 'This account was created with Google. Use the "Continue with Google" button to sign in.' },
+          { status: 400 },
+        )
+      }
       return NextResponse.json({ error: 'Incorrect email or password.' }, { status: 401 })
+    }
+    if (user.banned) {
+      return NextResponse.json(
+        { error: 'This account has been banned for violating the community standards. If you believe this is a mistake, contact the site administrator.' },
+        { status: 403 },
+      )
     }
 
     const { token, expiresAt } = await createSession(user.id)

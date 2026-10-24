@@ -21,10 +21,10 @@ is live on your own URL. No external database, no cloud services required.
 | **Privacy** | Private (only you) or Public. Public capsules can appear in the searchable **Future Archive** or stay unlisted (link-only) |
 | **Recipients** | Tag: future self, future child, grandchildren, people of 2078, future generations — or a custom name |
 | **Archive** | Public archive with full-text search, filters by release year / recipient / media type, sorting and pagination |
-| **Accounts** | Register / sign in / sign out, email verification, password reset (real emails via SMTP; graceful in-UI fallback without), profile with display name & bio, password change |
+| **Accounts** | Register / sign in / sign out, **Google sign-in** (one click with your Google account, activates when credentials are configured), email verification, password reset (real emails via SMTP; graceful in-UI fallback without), profile with display name & bio, password change |
 | **Vault dashboard** | Manage every capsule: edit, re-seal, change privacy, delete, watch countdowns |
 | **Interactions** | Minimal, privacy-first "future reactions" (4 signal types, one per visitor per capsule) |
-| **Safety** | Report flow + admin moderation desk (hide/restore capsules); **the first registered account becomes the admin** |
+| **Safety** | Report flow + admin moderation desk (hide/restore, strike, ban) · public capsules are **screened against community standards** before publishing (adult content, hate, threats, scam patterns) · 3 strikes = **automatic ban** (sessions closed, public capsules hidden) · 3 community reports **auto-quarantine** a capsule for review · full member management (search, ban/unban) · **the first registered account becomes the admin** |
 | **Data ownership** | One-click JSON export of your entire account (GDPR-style portability) |
 | **Security** | scrypt password hashing, DB-backed httpOnly session cookies, access-checked media gateway (private/sealed media is *never* publicly reachable), range-streamed video |
 | **UI** | Responsive from phones to desktops, light/dark theme, keyboard & screen-reader friendly, sticky footer layout |
@@ -124,6 +124,29 @@ capsules.yourdomain.com {
 
 ---
 
+### Google sign-in
+
+Add Google credentials to `.env` and the **“Continue with Google”** button
+appears automatically in the sign-in dialog — users click their Google
+account and they are in, no password needed. Full step-by-step setup is
+documented in `.env.example` (OAuth consent screen → OAuth client ID →
+add the redirect URI `/api/auth/google/callback`). Without credentials
+the app simply shows email sign-in only.
+
+### Community standards & moderation
+
+- Public capsules (title, letter, custom recipient) are screened before
+  publishing against an editable blocklist of adult, hateful, threatening
+  and scam content (`src/lib/moderation.ts`). Flagged text can still be
+  saved as a **private** capsule — the public archive stays clean.
+- A blocked public attempt records a **strike**; 3 strikes auto-ban the
+  account (sessions closed, public capsules hidden). Admins can also ban
+  or unban any member from the **Members** tab of the moderation desk.
+- 3 distinct community reports **auto-quarantine** a capsule (hidden from
+  the archive until an admin reviews it).
+- The word lists are intentionally plain and editable — extend or soften
+  them to fit your community.
+
 ## Email verification & password reset
 
 Out of the box (no SMTP configured) the app remains fully usable: the
@@ -222,3 +245,11 @@ docker-compose.yml        # one-command deployment
 ---
 
 *Made for the people of 2078 — and 3026.*
+
+---
+
+## About the developer
+
+**Future Voices** was created by **Isaac Bridget Njuguna** — a child of
+God with a dream to see a better world — so that wisdom, love and hope
+can travel safely across generations.

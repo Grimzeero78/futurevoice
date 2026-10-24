@@ -12,11 +12,16 @@ datasource db {
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
-  passwordHash String
+  passwordHash String? // null when the account signs in with Google only
+  googleId     String?   @unique // Google account link ("sub" claim)
   displayName  String
   bio          String?
   role         String    @default("USER") // USER | ADMIN
   emailVerified DateTime?
+  banned       Boolean   @default(false) // moderation: account blocked
+  banReason    String?
+  bannedAt     DateTime?
+  violations   Int       @default(0) // moderation strikes (auto-ban at threshold)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

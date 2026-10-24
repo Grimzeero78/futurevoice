@@ -9,6 +9,7 @@ import {
   parseReleaseDate,
   assertMediaOwnership,
 } from '@/lib/fv-core'
+import { screenText, registerViolation } from '@/lib/moderation'
 import type { Prisma } from '@prisma/client'
 
 export const runtime = 'nodejs'
@@ -122,6 +123,20 @@ export async function POST(req: NextRequest) {
       throw new HttpError(400, 'Please name the custom recipient for this capsule.')
     }
     await assertMediaOwnership(mediaIds, user.id)
+
+    // ── Community standards: public capsules are screened before publishing ──
+    if (privacy === 'PUBLIC') {
+      const screen = screenText([title, content, customRecipient])
+      if (screen.flagged) {
+        const strike = await registerViolation(user.id, screen.match ?? 'flagged content')
+        throw new HttpError(
+          422,
+          strike.banned
+            ? 'Your account has been banned after repeated violations of the community standards.'
+            : (screen.reason ?? 'This capsule cannot be published publicly.'),
+        )
+      }
+    }
 
     const status = releaseAt && releaseAt > new Date() ? 'SEALED' : 'PUBLISHED'
 

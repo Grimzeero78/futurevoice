@@ -71,6 +71,12 @@ export async function getCurrentUser(req: NextRequest): Promise<SessionUser | nu
     await db.session.delete({ where: { id: session.id } }).catch(() => {})
     return null
   }
+  // defense-in-depth: a banned account loses its session immediately,
+  // even if a ban happened mid-session
+  if (session.user.banned) {
+    await db.session.deleteMany({ where: { userId: session.user.id } }).catch(() => {})
+    return null
+  }
   const u = session.user
   return {
     id: u.id,

@@ -75,6 +75,28 @@ export function FVShell() {
     } else if (resetToken) {
       startPasswordReset(resetToken)
       window.history.replaceState(null, '', window.location.pathname)
+    } else if (params.get('authError')) {
+      // Google sign-in landed back with an error code
+      const authError = params.get('authError')
+      const messages: Record<string, [string, string]> = {
+        google_unconfigured: ['Google sign-in is not active', 'The server owner has not added Google credentials yet — use email sign-in.'],
+        google_cancelled: ['Google sign-in cancelled', 'No worries — you can try again any time.'],
+        google_state: ['Sign-in expired', 'The sign-in attempt took too long. Please try again.'],
+        google_failed: ['Google sign-in failed', 'Something went wrong talking to Google. Please try again.'],
+        banned: ['Account banned', 'This account has been banned for violating the community standards.'],
+      }
+      if (authError === 'google_welcome') {
+        void refreshSession()
+        toast({ title: 'Signed in with Google', description: 'Welcome — the future was waiting.' })
+      } else {
+        const m = messages[authError]
+        toast({
+          title: m?.[0] ?? 'Sign-in issue',
+          description: m?.[1] ?? 'Please try again.',
+          variant: 'destructive',
+        })
+      }
+      window.history.replaceState(null, '', window.location.pathname)
     }
 
     return () => window.removeEventListener('hashchange', onHash)
@@ -226,8 +248,13 @@ export function FVShell() {
               {session?.role === 'ADMIN' && (
                 <button className="hover:text-primary" onClick={() => navigate({ name: 'admin' })}>Moderation</button>
               )}
-              <span className="text-xs">Crafted for the people of 2078 and beyond.</span>
             </nav>
+          </div>
+          <div className="mx-auto max-w-6xl px-4 pb-8 text-center">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Crafted for the people of 2078 and beyond by{' '}
+              <span className="font-medium text-foreground">Isaac Bridget Njuguna</span> — a child of God with a dream to see a better world.
+            </p>
           </div>
         </footer>
 

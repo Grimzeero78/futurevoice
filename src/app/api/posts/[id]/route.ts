@@ -8,6 +8,7 @@ import {
   parseReleaseDate,
   assertMediaOwnership,
 } from '@/lib/fv-core'
+import { screenText, registerViolation } from '@/lib/moderation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -124,6 +125,24 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       const mediaIds: string[] = Array.isArray(body.mediaIds) ? body.mediaIds.map(String) : []
       await assertMediaOwnership(mediaIds, user.id)
       data.media = { set: mediaIds.map((mid) => ({ id: mid })) }
+    }
+
+    // ── Community standards: screen whatever would be (or stay) public ──
+    const nextPrivacy = (data.privacy as string | undefined) ?? existing.privacy
+    if (nextPrivacy === 'PUBLIC') {
+      const nextTitle = (data.title as string | undefined) ?? existing.title
+      const nextContent = (data.content as string | undefined) ?? existing.content
+      const nextCustom = (data.customRecipient as string | undefined) ?? existing.customRecipient
+      const screen = screenText([nextTitle, nextContent, nextCustom])
+      if (screen.flagged) {
+        const strike = await registerViolation(user.id, screen.match ?? 'flagged content')
+        throw new HttpError(
+          422,
+          strike.banned
+            ? 'Your account has been banned after repeated violations of the community standards.'
+            : (screen.reason ?? 'This capsule cannot be published publicly.'),
+        )
+      }
     }
 
     const post = await db.post.update({

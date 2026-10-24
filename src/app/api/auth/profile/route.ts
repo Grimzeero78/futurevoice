@@ -60,7 +60,13 @@ export async function POST(req: NextRequest) {
     }
 
     const record = await db.user.findUnique({ where: { id: user.id } })
-    if (!record || !verifyPassword(currentPassword, record.passwordHash)) {
+    if (!record || !record.passwordHash) {
+      return NextResponse.json(
+        { error: 'This account signs in with Google, so it has no password to change here.' },
+        { status: 400 },
+      )
+    }
+    if (!verifyPassword(currentPassword, record.passwordHash)) {
       return NextResponse.json({ error: 'Your current password is incorrect.' }, { status: 400 })
     }
 

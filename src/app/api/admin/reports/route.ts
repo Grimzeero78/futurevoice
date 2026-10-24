@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin, errorResponse, HttpError } from '@/lib/auth'
+import { registerViolation, banUser } from '@/lib/moderation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -55,6 +56,29 @@ export async function PATCH(req: NextRequest) {
         }),
         db.report.update({ where: { id: reportId }, data: { status: 'RESOLVED', resolvedAt: new Date() } }),
       ])
+    } else if (action === 'HIDE_AND_STRIKE') {
+      // hide the capsule, resolve the report, and record a strike against
+      // the author — repeated offenders auto-ban (see moderation.ts)
+      const full = await db.post.findUnique({ where: { id: report.postId }, select: { authorId: true } })
+      await db.$transaction([
+        db.post.update({
+          where: { id: report.postId },
+          data: { hidden: true, hiddenReason: String(body.note ?? 'Hidden by moderators — standards violation') },
+        }),
+        db.report.update({ where: { id: reportId }, data: { status: 'RESOLVED', resolvedAt: new Date() } }),
+      ])
+      let banned = false
+      if (full) {
+        const strike = await registerViolation(full.authorId, 'confirmed report — standards violation')
+        banned = strike.banned
+      }
+      return NextResponse.json({ ok: true, banned })
+    } else if (action === 'BAN_AUTHOR') {
+      const full = await db.post.findUnique({ where: { id: report.postId }, select: { authorId: true } })
+      if (!full) throw new HttpError(404, 'Capsule not found.')
+      await banUser(full.authorId, String(body.note ?? 'Banned after a confirmed community report.'))
+      await db.report.update({ where: { id: reportId }, data: { status: 'RESOLVED', resolvedAt: new Date() } })
+      return NextResponse.json({ ok: true, banned: true })
     } else if (action === 'UNHIDE_POST') {
       await db.post.update({
         where: { id: report.postId },

@@ -77,12 +77,14 @@ export function Compose({ editId }: { editId?: string }) {
   }, [cyYear, cyMonth])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (parseInt(cyDay, 10) > maxDay) setCyDay(String(maxDay))
   }, [maxDay, cyDay])
 
   useEffect(() => {
     if (!session) return
     if (!isEdit) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingPost(true)
     api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[] } }>(`/api/posts/${editId}`)
       .then((d) => {

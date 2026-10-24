@@ -13,6 +13,18 @@ import { toast } from '@/hooks/use-toast'
 import { api } from '@/lib/fv-client'
 import { useFV, type AuthMode, type SessionUser } from '@/lib/fv-store'
 
+// Google "G" mark (inline SVG so no external asset is needed)
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" aria-hidden>
+      <path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.2H12v4.1h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.7 2.9c2.3-2.1 3.7-5.2 3.7-8.6z" />
+      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.7-2.9c-1 .7-2.4 1.2-4.2 1.2-3.2 0-5.9-2.1-6.8-5.1L1.3 17.2C3.3 21.2 7.3 24 12 24z" />
+      <path fill="#FBBC05" d="M5.2 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3L1.3 6.8C.5 8.4 0 10.1 0 12s.5 3.6 1.3 5.2l3.9-2.9z" />
+      <path fill="#EA4335" d="M12 4.7c2.3 0 3.8 1 4.7 1.8l3.4-3.3C17.9 1.2 15.2 0 12 0 7.3 0 3.3 2.8 1.3 6.8l3.9 2.9c.9-3 3.6-5 6.8-5z" />
+    </svg>
+  )
+}
+
 type ApiUser = Omit<SessionUser, 'stats'>
 
 export function AuthDialog() {
@@ -28,11 +40,18 @@ export function AuthDialog() {
   const [busy, setBusy] = useState(false)
   const [registered, setRegistered] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
   const [resetInfo, setResetInfo] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
+  const [googleReady, setGoogleReady] = useState(false)
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRegistered(null)
       setResetInfo(null)
+      // ask the server once per open whether Google sign-in is configured
+      fetch('/api/auth/providers', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => setGoogleReady(Boolean(d.google)))
+        .catch(() => setGoogleReady(false))
     }
   }, [open, mode])
 
@@ -199,6 +218,23 @@ export function AuthDialog() {
         ) : (
           /* ── login / register / forgot forms ── */
           <form onSubmit={submit} className="space-y-4">
+            {googleReady && mode !== 'forgot' && (
+              <>
+                <a
+                  href="/api/auth/google"
+                  className="flex h-10 w-full items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  role="button"
+                  aria-label="Continue with Google"
+                >
+                  <GoogleMark /> Continue with Google
+                </a>
+                <div className="flex items-center gap-3">
+                  <Separator className="flex-1" />
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">or with email</span>
+                  <Separator className="flex-1" />
+                </div>
+              </>
+            )}
             {mode === 'register' && (
               <div className="space-y-2">
                 <Label htmlFor="displayName">Display name</Label>
