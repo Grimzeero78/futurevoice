@@ -41,11 +41,21 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (!media) return NextResponse.json({ error: 'Media not found.' }, { status: 404 })
 
     const isOwner = !!user && user.id === media.ownerId
+    let heirUnlocked = false
+    if (media.post && user) {
+      const heir = await db.heir.findFirst({
+        where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
+        select: { id: true },
+      })
+      // release DATE is the source of truth for keepers (never early, no sweep-lag)
+      const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
+      heirUnlocked = !!heir && released && !media.post.hidden
+    }
     if (media.post) {
       const postAuthor = media.post.authorId === user?.id
       const publiclyVisible =
         media.post.privacy === 'PUBLIC' && !media.post.hidden && !isSealed(media.post)
-      if (!postAuthor && !publiclyVisible) {
+      if (!postAuthor && !publiclyVisible && !heirUnlocked) {
         const sealedOnly = media.post.privacy === 'PUBLIC' && !media.post.hidden && isSealed(media.post)
         return accessDenied(sealedOnly)
       }
@@ -56,9 +66,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const filePath = assertInsideUploadDir(media.storagePath)
     const size = await fileSize(filePath)
 
+    const privateAccess = (isOwner && !media.post) || (!!media.post && !isOwner)
     const baseHeaders = new Headers({
       'Content-Type': media.mimeType,
-      'Cache-Control': isOwner && !media.post ? 'private, max-age=3600' : 'public, max-age=86400',
+      'Cache-Control': privateAccess ? 'private, max-age=3600' : 'public, max-age=86400',
       'Accept-Ranges': 'bytes',
       'Content-Disposition': req.nextUrl.searchParams.get('download')
         ? `attachment; filename*=UTF-8''${encodeURIComponent(media.filename)}`
@@ -116,12 +127,22 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
     })
     if (!media) return new NextResponse(null, { status: 404 })
     const isOwner = !!user && user.id === media.ownerId
+    let heirUnlocked = false
+    if (media.post && user) {
+      const heir = await db.heir.findFirst({
+        where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
+        select: { id: true },
+      })
+      // release DATE is the source of truth for keepers (never early, no sweep-lag)
+      const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
+      heirUnlocked = !!heir && released && !media.post.hidden
+    }
     const publiclyVisible =
       media.post &&
       media.post.privacy === 'PUBLIC' &&
       !media.post.hidden &&
       !isSealed(media.post)
-    if (!isOwner && !publiclyVisible) return new NextResponse(null, { status: 403 })
+    if (!isOwner && !publiclyVisible && !heirUnlocked) return new NextResponse(null, { status: 403 })
 
     const filePath = assertInsideUploadDir(media.storagePath)
     const size = await fileSize(filePath)

@@ -11,6 +11,7 @@ export type SessionUser = {
   bio: string | null
   role: string
   emailVerified: string | Date | null
+  createdAt?: string | Date
   stats?: { postCount: number; sealedCount: number; reactionsReceived: number }
 }
 

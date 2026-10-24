@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Hourglass, MailCheck, KeyRound, MailOpen } from 'lucide-react'
+import { Loader2, Hourglass, MailCheck, KeyRound, MailOpen, Settings } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { api } from '@/lib/fv-client'
 import { useFV, type AuthMode, type SessionUser } from '@/lib/fv-store'
@@ -41,6 +41,8 @@ export function AuthDialog() {
   const [registered, setRegistered] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
   const [resetInfo, setResetInfo] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
   const [googleReady, setGoogleReady] = useState(false)
+  const [googleSetupOpen, setGoogleSetupOpen] = useState(false)
+  const [googleTried, setGoogleTried] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -52,6 +54,8 @@ export function AuthDialog() {
         .then((r) => r.json())
         .then((d) => setGoogleReady(Boolean(d.google)))
         .catch(() => setGoogleReady(false))
+       
+      setGoogleTried(false)
     }
   }, [open, mode])
 
@@ -116,6 +120,44 @@ export function AuthDialog() {
       setBusy(false)
     }
   }
+
+  // The Google button is ALWAYS shown — when the server has no Google
+  // credentials yet, clicking it opens a one-time setup guide instead.
+  const googleButton = mode !== 'forgot' && (
+    <>
+      <a
+        href={googleReady ? '/api/auth/google' : undefined}
+        onClick={
+          googleReady
+            ? undefined
+            : (e) => {
+                e.preventDefault()
+                setGoogleSetupOpen(true)
+                setGoogleTried(true)
+              }
+        }
+        className="flex h-10 w-full items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        role="button"
+        aria-label="Continue with Google"
+      >
+        <GoogleMark /> Continue with Google
+      </a>
+      {!googleReady && (
+        <p className="-mt-1 text-center text-[11px] leading-snug text-muted-foreground">
+          Not switched on yet —{' '}
+          <button type="button" className="font-medium text-primary underline-offset-2 hover:underline" onClick={() => setGoogleSetupOpen(true)}>
+            see how to enable it
+          </button>{' '}
+          (one-time server setup).
+        </p>
+      )}
+      <div className="flex items-center gap-3">
+        <Separator className="flex-1" />
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">or with email</span>
+        <Separator className="flex-1" />
+      </div>
+    </>
+  )
 
   const titles: Record<AuthMode, [string, string]> = {
     login: ['Welcome back', 'Sign in to open your vault of capsules.'],
@@ -218,23 +260,7 @@ export function AuthDialog() {
         ) : (
           /* ── login / register / forgot forms ── */
           <form onSubmit={submit} className="space-y-4">
-            {googleReady && mode !== 'forgot' && (
-              <>
-                <a
-                  href="/api/auth/google"
-                  className="flex h-10 w-full items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  role="button"
-                  aria-label="Continue with Google"
-                >
-                  <GoogleMark /> Continue with Google
-                </a>
-                <div className="flex items-center gap-3">
-                  <Separator className="flex-1" />
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">or with email</span>
-                  <Separator className="flex-1" />
-                </div>
-              </>
-            )}
+            {googleButton}
             {mode === 'register' && (
               <div className="space-y-2">
                 <Label htmlFor="displayName">Display name</Label>
@@ -287,6 +313,59 @@ export function AuthDialog() {
             </div>
           </form>
         )}
+
+        {/* one-time setup guide shown when Google credentials are missing */}
+        <SetupGuide
+          open={googleSetupOpen}
+          onOpenChange={setGoogleSetupOpen}
+          onClose={() => setGoogleSetupOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SetupGuide({ open, onOpenChange, onClose }: { open: boolean; onOpenChange: (o: boolean) => void; onClose: () => void }) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) onClose() }}>
+      <DialogContent className="fv-scroll max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="font-display flex items-center gap-2">
+            <Settings className="h-5 w-5 text-primary" aria-hidden /> Switch on Google sign-in
+          </DialogTitle>
+          <DialogDescription>
+            One-time setup on the server — about five minutes, free. After step 5 the button starts working for everyone.
+          </DialogDescription>
+        </DialogHeader>
+        <ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed">
+          <li>
+            Open <span className="font-medium">console.cloud.google.com</span> → create or select a project.
+          </li>
+          <li>
+            <span className="font-medium">APIs &amp; Services → OAuth consent screen → External</span> — fill in the app name and your email, then save.
+          </li>
+          <li>
+            <span className="font-medium">APIs &amp; Services → Credentials → Create credentials → OAuth client ID → Web application</span>.
+          </li>
+          <li>
+            Under <span className="font-medium">Authorized redirect URIs</span> add exactly:
+            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">http://localhost:3000/api/auth/google/callback</code>
+            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">https://YOUR-DOMAIN/api/auth/google/callback</code>
+          </li>
+          <li>
+            Copy the Client ID and Client secret into your <span className="font-medium">.env</span> file:
+            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">GOOGLE_CLIENT_ID=&quot;…apps.googleusercontent.com&quot;</code>
+            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">GOOGLE_CLIENT_SECRET=&quot;GOCSPX-…&quot;</code>
+            then restart the server (<span className="font-medium">npm start</span> or <span className="font-medium">docker compose up -d</span>).
+          </li>
+        </ol>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Until then visitors use the email option — but the Google button above is already visible, so the moment the two
+          values are in your .env, Google sign-in simply starts working. Full guide: README → “Google sign-in setup”.
+        </p>
+        <DialogFooter>
+          <Button onClick={onClose}>Got it</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

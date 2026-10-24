@@ -77,7 +77,7 @@ export function FVShell() {
       window.history.replaceState(null, '', window.location.pathname)
     } else if (params.get('authError')) {
       // Google sign-in landed back with an error code
-      const authError = params.get('authError')
+      const authError = params.get('authError') ?? ''
       const messages: Record<string, [string, string]> = {
         google_unconfigured: ['Google sign-in is not active', 'The server owner has not added Google credentials yet — use email sign-in.'],
         google_cancelled: ['Google sign-in cancelled', 'No worries — you can try again any time.'],

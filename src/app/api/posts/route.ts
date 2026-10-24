@@ -7,9 +7,11 @@ import {
   serializePost,
   parseRecipientTag,
   parseReleaseDate,
+  parseHeirs,
   assertMediaOwnership,
 } from '@/lib/fv-core'
 import { screenText, registerViolation } from '@/lib/moderation'
+import { hashPassword } from '@/lib/auth'
 import type { Prisma } from '@prisma/client'
 
 export const runtime = 'nodejs'
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest) {
     const sort = sp.get('sort') ?? 'newest'
     const page = Math.max(1, parseInt(sp.get('page') ?? '1', 10) || 1)
 
-    const where: Prisma.PostWhereInput = { ...publicPostWhere() }
+    const where: Prisma.PostWhereInput = { ...publicPostWhere() } as Prisma.PostWhereInput
 
     if (q) {
       where.OR = [
@@ -109,6 +111,9 @@ export async function POST(req: NextRequest) {
     const appearInArchive = body.appearInArchive !== false
     const releaseAt = parseReleaseDate(body.releaseAt)
     const mediaIds: string[] = Array.isArray(body.mediaIds) ? body.mediaIds.map(String) : []
+    const heirs = parseHeirs(body.heirs)
+    const heirNote = String(body.heirNote ?? '').trim() || null
+    const heirPassphrase = String(body.heirPassphrase ?? '').trim()
 
     if (!title || title.length > 120) {
       throw new HttpError(400, 'Please give your capsule a title (up to 120 characters).')
@@ -121,6 +126,12 @@ export async function POST(req: NextRequest) {
     }
     if (recipientTag === 'CUSTOM' && !customRecipient) {
       throw new HttpError(400, 'Please name the custom recipient for this capsule.')
+    }
+    if (heirNote && heirNote.length > 2000) {
+      throw new HttpError(400, 'The note to your keepers is limited to 2,000 characters.')
+    }
+    if (heirPassphrase.length > 200) {
+      throw new HttpError(400, 'The family passphrase is limited to 200 characters.')
     }
     await assertMediaOwnership(mediaIds, user.id)
 
@@ -151,7 +162,10 @@ export async function POST(req: NextRequest) {
         recipientTag,
         customRecipient,
         appearInArchive: privacy === 'PUBLIC' ? appearInArchive : true,
+        heirNote,
+        heirPassHash: heirPassphrase ? hashPassword(heirPassphrase) : null,
         media: { connect: mediaIds.map((id) => ({ id })) },
+        heirs: { create: heirs.map((h) => ({ email: h.email, name: h.name })) },
       },
       include: {
         author: { select: { id: true, displayName: true } },

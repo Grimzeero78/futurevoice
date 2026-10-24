@@ -98,3 +98,21 @@ export async function sendPasswordResetEmail(req: Request, to: string, token: st
      <p style="font-size:13px;color:#78716c;">Or paste this link into your browser:<br><a href="${link}" style="color:#b45309;">${link}</a></p>`,
   )
 }
+
+/**
+ * Sent to a keeper/heir the moment a capsule sealed for them unlocks.
+ * The keeper must sign in (or sign up) with this exact email address,
+ * then claim the legacy from the "Legacies" tab of their vault.
+ */
+export async function sendLegacyUnlockedEmail(req: Request | undefined, to: string, authorName: string, title: string): Promise<boolean> {
+  const link = `${appUrl(req)}/#/dashboard`
+  return send(
+    to,
+    `A capsule kept for you has opened — Future Voices`,
+    `${authorName} left something for you, and its time has come.`,
+    `<p style="font-size:14px;line-height:1.7;">A time capsule named <strong>“${title.replace(/</g, '&lt;')}”</strong>, sealed by ${authorName.replace(/</g, '&lt;')}, has just unlocked — and your email address was written inside as one of its keepers.</p>
+     <p style="font-size:14px;line-height:1.7;">Sign in to Future Voices with <strong>${to}</strong> to read it. It has been waiting patiently, and it is not going anywhere.</p>
+     <p style="margin:22px 0;"><a href="${link}" style="display:inline-block;background:#b45309;color:#fffdfa;text-decoration:none;padding:12px 26px;border-radius:999px;font-weight:bold;">Open the legacies tab</a></p>
+     <p style="font-size:13px;color:#78716c;">Or paste this link into your browser:<br><a href="${link}" style="color:#b45309;">${link}</a></p>`,
+  )
+}

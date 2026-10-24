@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Loader2, UploadCloud, X, Lock, Unlock, Globe, EyeOff, CalendarClock, Trash2, Send, Infinity as InfinityIcon,
+  Users, KeyRound, MailPlus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,8 @@ type MediaItem = {
   size: number
   url: string
 }
+
+type HeirEntry = { email: string; name: string | null }
 
 type Uploading = { name: string; pct: number }
 
@@ -69,6 +72,14 @@ export function Compose({ editId }: { editId?: string }) {
   const fileInput = useRef<HTMLInputElement>(null)
   const isEdit = !!editId
 
+  // ── legacy keepers state ──
+  const [heirs, setHeirs] = useState<HeirEntry[]>([])
+  const [heirName, setHeirName] = useState('')
+  const [heirEmail, setHeirEmail] = useState('')
+  const [heirPassphrase, setHeirPassphrase] = useState('')
+  const [hasHeirPass, setHasHeirPass] = useState(false) // edit mode: a passphrase is already set
+  const [heirNote, setHeirNote] = useState('')
+
   const maxDay = useMemo(() => {
     const y = parseInt(cyYear, 10)
     const m = parseInt(cyMonth, 10)
@@ -86,7 +97,7 @@ export function Compose({ editId }: { editId?: string }) {
     if (!isEdit) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingPost(true)
-    api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[] } }>(`/api/posts/${editId}`)
+    api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[]; heirs?: HeirEntry[]; heirNote?: string | null; hasHeirPassphrase?: boolean } }>(`/api/posts/${editId}`)
       .then((d) => {
         setTitle(d.post.title)
         setContent(d.post.content ?? '')
@@ -96,6 +107,9 @@ export function Compose({ editId }: { editId?: string }) {
         setAppearInArchive(d.post.appearInArchive)
         setReleaseDate(d.post.releaseAt ? new Date(d.post.releaseAt) : undefined)
         setMedia(d.post.media)
+        if (d.post.heirs) setHeirs(d.post.heirs)
+        if (d.post.heirNote) setHeirNote(d.post.heirNote)
+        setHasHeirPass(!!d.post.hasHeirPassphrase)
       })
       .catch((e) => toast({ title: 'Could not load capsule', description: e.message, variant: 'destructive' }))
       .finally(() => setLoadingPost(false))
@@ -130,6 +144,26 @@ export function Compose({ editId }: { editId?: string }) {
     if (fileInput.current) fileInput.current.value = ''
   }
 
+  function addHeir() {
+    const email = heirEmail.trim().toLowerCase()
+    if (!email) return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'That email does not look right', description: 'Keepers are reached by email, so it must be valid.', variant: 'destructive' })
+      return
+    }
+    if (heirs.some((h) => h.email === email)) {
+      toast({ title: 'That keeper is already on the list' })
+      return
+    }
+    if (heirs.length >= 10) {
+      toast({ title: 'Ten keepers is the limit', description: 'A quiet circle is harder to lose.', variant: 'destructive' })
+      return
+    }
+    setHeirs((h) => [...h, { email, name: heirName.trim() || null }])
+    setHeirEmail('')
+    setHeirName('')
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) {
@@ -156,6 +190,9 @@ export function Compose({ editId }: { editId?: string }) {
         appearInArchive,
         releaseAt: releaseDate ? releaseDate.toISOString() : null,
         mediaIds: media.map((m) => m.id),
+        heirs,
+        heirNote: heirNote.trim(),
+        ...(heirPassphrase.trim() ? { heirPassphrase: heirPassphrase.trim() } : {}),
       }
       if (isEdit) {
         await api(`/api/posts/${editId}`, { method: 'PATCH', json: payload })
@@ -445,6 +482,127 @@ export function Compose({ editId }: { editId?: string }) {
               A scheduler checks every minute and unseals capsules exactly when their moment arrives — not a second before.
             </p>
           </div>
+        </section>
+
+        {/* ─── Keepers & legacy ─── */}
+        <section className="rounded-xl border bg-card p-5 shadow-sm" aria-labelledby="keepers-heading">
+          <div className="mb-1 flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" aria-hidden />
+            <h2 id="keepers-heading" className="font-semibold">Keepers of this capsule</h2>
+          </div>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Seal it for 30 years and let your grandchildren open it. Name the people who should
+            receive this capsule when its time comes — even if you are no longer here to hand it over.
+          </p>
+
+          {heirs.length > 0 && (
+            <ul className="mb-4 space-y-2" aria-label="Named keepers">
+              {heirs.map((h) => (
+                <li key={h.email} className="flex items-center justify-between gap-3 rounded-lg border bg-secondary/40 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{h.name || h.email}</p>
+                    {h.name && <p className="truncate text-xs text-muted-foreground">{h.email}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Remove keeper ${h.email}`}
+                    onClick={() => setHeirs((arr) => arr.filter((x) => x.email !== h.email))}
+                    className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+            <Input
+              aria-label="Keeper's name (optional)"
+              value={heirName}
+              onChange={(e) => setHeirName(e.target.value)}
+              maxLength={60}
+              placeholder="Name (optional)"
+            />
+            <Input
+              aria-label="Keeper's email"
+              type="email"
+              value={heirEmail}
+              onChange={(e) => setHeirEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addHeir()
+                }
+              }}
+              maxLength={120}
+              placeholder="Their exact email address"
+            />
+            <Button type="button" variant="secondary" onClick={addHeir} disabled={!heirEmail.trim()}>
+              <MailPlus className="mr-1.5 h-4 w-4" aria-hidden /> Add keeper
+            </Button>
+          </div>
+          {heirs.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              On the release day, each keeper signs in (or signs up) with that exact email and claims the capsule
+              from the <span className="font-medium">Legacies</span> tab of their vault. We email them the moment it unlocks.
+            </p>
+          )}
+
+          {heirs.length > 0 && (
+            <div className="mt-4 space-y-3 rounded-lg border border-dashed p-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="heir-pass" className="flex items-center gap-1.5 text-sm">
+                  <KeyRound className="h-3.5 w-3.5 text-primary" aria-hidden /> Family passphrase <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="heir-pass"
+                  value={heirPassphrase}
+                  onChange={(e) => setHeirPassphrase(e.target.value)}
+                  maxLength={200}
+                  placeholder={hasHeirPass ? 'Already set — type a new word to replace it' : 'A word only your family knows, e.g. the name of our ancestral home'}
+                  autoComplete="off"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Keepers must type this once, when they open the capsule — so a stranger with the email alone still gets nothing.
+                  </p>
+                  {isEdit && hasHeirPass && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      onClick={async () => {
+                        try {
+                          await api(`/api/posts/${editId}`, { method: 'PATCH', json: { clearHeirPassphrase: true } })
+                          setHasHeirPass(false)
+                          setHeirPassphrase('')
+                          toast({ title: 'Family passphrase removed' })
+                        } catch (err) {
+                          toast({ title: 'Could not remove passphrase', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
+                        }
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="heir-note" className="text-sm">A note the keepers will see when they open it <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Textarea
+                  id="heir-note"
+                  value={heirNote}
+                  onChange={(e) => setHeirNote(e.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="e.g. My sweets, I sealed this the year you were born. Read it slowly, and pass it on one day."
+                />
+                <p className="text-right text-xs text-muted-foreground">{heirNote.length}/2,000</p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ─── Actions ─── */}

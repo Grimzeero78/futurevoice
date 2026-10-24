@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Plus, Download, Eye, Heart, Lock, Globe, EyeOff, Pencil, Trash2, MoreHorizontal,
-  Vault, Hourglass,
+  Vault, Hourglass, Gift,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,11 +18,13 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/hooks/use-toast'
 import { Countdown } from '@/components/fv/countdown'
+import { Legacies } from '@/components/fv/legacies'
 import { api, recipientLabel, formatDate, initials } from '@/lib/fv-client'
 import { useFV } from '@/lib/fv-store'
 import type { SerializedPost } from '@/lib/fv-core'
 
 type Summary = { total: number; public: number; private: number; sealed: number; totalViews: number; totalReactions: number; dueForRelease: number }
+type LegacyCounts = { total: number; sealed: number; readyToOpen: number; claimed: number }
 
 export function Dashboard() {
   const session = useFV((s) => s.session)
@@ -30,6 +32,7 @@ export function Dashboard() {
   const openAuth = useFV((s) => s.openAuth)
   const [posts, setPosts] = useState<SerializedPost[] | null>(null)
   const [summary, setSummary] = useState<Summary | null>(null)
+  const [legacyCounts, setLegacyCounts] = useState<LegacyCounts | null>(null)
   const [tab, setTab] = useState('all')
 
   const load = useCallback(async () => {
@@ -40,6 +43,12 @@ export function Dashboard() {
     } catch (e) {
       toast({ title: 'Could not load your vault', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' })
       setPosts([])
+    }
+    try {
+      const l = await api<{ counts: LegacyCounts }>('/api/me/legacies')
+      setLegacyCounts(l.counts)
+    } catch {
+      setLegacyCounts(null)
     }
   }, [])
   useEffect(() => {
@@ -86,7 +95,7 @@ export function Dashboard() {
   const stats = [
     { label: 'Capsules', value: summary?.total ?? 0, icon: Vault },
     { label: 'Sealed', value: summary?.sealed ?? 0, icon: Lock },
-    { label: 'Views', value: summary?.totalViews ?? 0, icon: Eye },
+    { label: 'Legacies', value: legacyCounts?.total ?? 0, icon: Gift },
     { label: 'Signals', value: summary?.totalReactions ?? 0, icon: Heart },
   ]
 
@@ -128,8 +137,18 @@ export function Dashboard() {
           <TabsTrigger value="public">Public ({summary?.public ?? 0})</TabsTrigger>
           <TabsTrigger value="private">Private ({summary?.private ?? 0})</TabsTrigger>
           <TabsTrigger value="sealed">Sealed ({summary?.sealed ?? 0})</TabsTrigger>
+          <TabsTrigger value="legacies" className="gap-1.5">
+            <Gift className="h-3.5 w-3.5" aria-hidden />
+            Legacies{legacyCounts?.total ? ` (${legacyCounts.total})` : ''}
+            {!!legacyCounts?.readyToOpen && <span className="ml-0.5 inline-block h-2 w-2 rounded-full bg-primary" aria-hidden />}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {tab === 'legacies' ? (
+        <Legacies />
+      ) : (
+      <>
 
       {/* list */}
       {posts === null ? (
@@ -234,6 +253,8 @@ export function Dashboard() {
             </li>
           ))}
         </ul>
+      )}
+      </>
       )}
     </div>
   )

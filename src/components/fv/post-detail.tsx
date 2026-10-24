@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Eye, Flag, Pencil, Trash2, Globe, EyeOff, Lock, Unlock, Hourglass, CalendarDays, Loader2,
-  AlertTriangle, MailOpen,
+  AlertTriangle, MailOpen, Gift, KeyRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,12 +23,26 @@ type DetailData = {
   post: SerializedPost
   isAuthor: boolean
   isAdmin: boolean
+  isKeeper?: boolean
   myReaction: string | null
 }
 
 type Teaser = {
   sealedOnly: true
-  teaser: { id: string; releaseAt: string | null; recipientTag: string; customRecipient: string | null; mediaCount: number }
+  teaser?: { id: string; releaseAt: string | null; recipientTag: string; customRecipient: string | null; mediaCount: number }
+  legacyTeaser?: {
+    id: string
+    title: string
+    authorName: string
+    releaseAt: string | null
+    recipientTag: string
+    customRecipient: string | null
+    mediaCount: number
+    sealed: boolean
+    needsPassphrase: boolean
+    claimed: boolean
+    keeperName: string | null
+  }
 }
 
 export function PostDetail({ id }: { id: string }) {
@@ -111,8 +125,55 @@ export function PostDetail({ id }: { id: string }) {
     )
   }
 
+  /* ─── Legacy teaser: this capsule is kept for the signed-in account ─── */
+  if (teaser?.legacyTeaser) {
+    const lt = teaser.legacyTeaser
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <div className="sealed-stripes rounded-2xl border-2 border-primary/40 bg-card p-10 text-center shadow-lg">
+          <span className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center">
+            <span className="absolute h-20 w-20 rounded-full bg-primary/25 ring-pulse" aria-hidden />
+            <span className="wax-seal flex h-16 w-16 items-center justify-center rounded-full">
+              <Gift className="h-8 w-8 text-primary-foreground" aria-hidden />
+            </span>
+          </span>
+          <p className="text-sm font-medium uppercase tracking-widest text-primary">A capsule is kept for you</p>
+          <h1 className="mt-2 font-display text-2xl font-bold">“{lt.title}”</h1>
+          <p className="mx-auto mt-3 max-w-md text-muted-foreground">
+            Sealed by <span className="font-medium text-foreground">{lt.authorName}</span>
+            {lt.keeperName ? <> for <span className="font-medium text-foreground">{lt.keeperName}</span></> : null}
+            . {lt.sealed
+              ? 'It is still waiting for its moment — the countdown below is already running.'
+              : lt.claimed
+                ? 'It has been sealed again by its author. Come back when the seal breaks.'
+                : 'Its time has come — open it from the Legacies tab of your vault.'}
+          </p>
+          {lt.sealed && lt.releaseAt && (
+            <div className="mt-8">
+              <Countdown target={lt.releaseAt} />
+            </div>
+          )}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            <Badge variant="secondary">{recipientLabel(lt.recipientTag, lt.customRecipient)}</Badge>
+            {lt.needsPassphrase && !lt.claimed && (
+              <Badge variant="outline" className="gap-1">
+                <KeyRound className="h-3 w-3" aria-hidden /> protected by a family passphrase
+              </Badge>
+            )}
+          </div>
+          {!lt.sealed && (
+            <Button className="mt-8" onClick={() => navigate({ name: 'dashboard' })}>
+              <Gift className="mr-1.5 h-4 w-4" aria-hidden /> Go to my legacies
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   /* ─── Sealed teaser view ─── */
-  if (teaser) {
+  if (teaser?.teaser) {
+    const t = teaser.teaser
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
         <div className="sealed-stripes rounded-2xl border-2 border-dashed border-primary/40 bg-card p-10 text-center shadow-lg">
@@ -123,20 +184,20 @@ export function PostDetail({ id }: { id: string }) {
             </span>
           </span>
           <p className="text-sm font-medium uppercase tracking-widest text-primary">This capsule is sealed</p>
-          <h1 className="mt-2 font-display text-2xl font-bold">Its words are waiting for {teaser.teaser.releaseAt ? formatDate(teaser.teaser.releaseAt, { year: 'numeric' }) : 'the right moment'}</h1>
+          <h1 className="mt-2 font-display text-2xl font-bold">Its words are waiting for {t.releaseAt ? formatDate(t.releaseAt, { year: 'numeric' }) : 'the right moment'}</h1>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            {teaser.teaser.mediaCount > 0
-              ? `${teaser.teaser.mediaCount} file${teaser.teaser.mediaCount === 1 ? '' : 's'} sleep inside. `
+            {t.mediaCount > 0
+              ? `${t.mediaCount} file${t.mediaCount === 1 ? '' : 's'} sleep inside. `
               : ''}
             Come back when the seal breaks — the countdown is already running.
           </p>
-          {teaser.teaser.releaseAt && (
+          {t.releaseAt && (
             <div className="mt-8">
-              <Countdown target={teaser.teaser.releaseAt} />
+              <Countdown target={t.releaseAt} />
             </div>
           )}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="secondary">{recipientLabel(teaser.teaser.recipientTag, teaser.teaser.customRecipient)}</Badge>
+            <Badge variant="secondary">{recipientLabel(t.recipientTag, t.customRecipient)}</Badge>
           </div>
         </div>
       </div>
@@ -145,6 +206,7 @@ export function PostDetail({ id }: { id: string }) {
 
   if (!data) return null
   const { post, isAuthor } = data
+  const isKeeper = !!data.isKeeper && !isAuthor
   const sealed = post.status === 'SEALED'
   const canReact = session && !sealed && post.privacy === 'PUBLIC' && !isAuthor
 
@@ -168,6 +230,11 @@ export function PostDetail({ id }: { id: string }) {
             )}
             {post.hidden && (
               <Badge variant="destructive" className="gap-1">Hidden by moderators</Badge>
+            )}
+            {isKeeper && (
+              <Badge className="gap-1 bg-primary text-primary-foreground">
+                <Gift className="h-3 w-3" aria-hidden /> Legacy · kept for you
+              </Badge>
             )}
           </div>
           <h1 className="font-display text-3xl font-bold leading-tight sm:text-4xl">{post.title}</h1>
@@ -237,6 +304,16 @@ export function PostDetail({ id }: { id: string }) {
               You are the author — you can preview the contents below. Everyone else sees only the seal.
             </p>
           )}
+        </div>
+      )}
+
+      {/* keeper's note from the author */}
+      {isKeeper && post.heirNote && !sealed && (
+        <div className="paper-grain mb-6 rounded-xl border border-primary/30 bg-primary/5 p-5">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-primary">
+            <Gift className="h-3.5 w-3.5" aria-hidden /> A note from the one who sealed this
+          </p>
+          <p className="whitespace-pre-wrap font-display text-[15px] leading-relaxed">{post.heirNote}</p>
         </div>
       )}
 

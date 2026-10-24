@@ -20,6 +20,7 @@ is live on your own URL. No external database, no cloud services required.
 | **Time lock** | Any release date from today up to **year 9999** (+1, +10, +25, +50, +100, **+1000 years** quick presets, or an exact date). A scheduler unseals capsules the moment their date arrives |
 | **Privacy** | Private (only you) or Public. Public capsules can appear in the searchable **Future Archive** or stay unlisted (link-only) |
 | **Recipients** | Tag: future self, future child, grandchildren, people of 2078, future generations — or a custom name |
+| **Keepers & legacies** | Name up to 10 **keepers** (heirs) per capsule by email, protect it with an optional **family passphrase**, add a private note they'll see on opening. On release day keepers are emailed and can **claim** the capsule from their own **Legacies** tab — it becomes permanently theirs, even if the author is no longer around |
 | **Archive** | Public archive with full-text search, filters by release year / recipient / media type, sorting and pagination |
 | **Accounts** | Register / sign in / sign out, **Google sign-in** (one click with your Google account, activates when credentials are configured), email verification, password reset (real emails via SMTP; graceful in-UI fallback without), profile with display name & bio, password change |
 | **Vault dashboard** | Manage every capsule: edit, re-seal, change privacy, delete, watch countdowns |
@@ -126,12 +127,43 @@ capsules.yourdomain.com {
 
 ### Google sign-in
 
-Add Google credentials to `.env` and the **“Continue with Google”** button
-appears automatically in the sign-in dialog — users click their Google
-account and they are in, no password needed. Full step-by-step setup is
-documented in `.env.example` (OAuth consent screen → OAuth client ID →
-add the redirect URI `/api/auth/google/callback`). Without credentials
-the app simply shows email sign-in only.
+The **“Continue with Google”** button is always visible in the sign-in dialog.
+Once you add Google credentials to `.env` it starts working instantly —
+users click their Google account and they are in, no password needed.
+Until then, clicking the button opens a built-in setup guide that walks
+through these steps:
+
+1. Go to <https://console.cloud.google.com> → create or select a project.
+2. **APIs & Services → OAuth consent screen → External** — fill the app name and your email, save.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
+4. Under **Authorized redirect URIs** add exactly:
+   - `http://localhost:3000/api/auth/google/callback`
+   - `https://YOUR-DOMAIN/api/auth/google/callback` (when live)
+5. Copy the Client ID and Client secret into `.env`:
+   ```
+   GOOGLE_CLIENT_ID="1234-abc.apps.googleusercontent.com"
+   GOOGLE_CLIENT_SECRET="GOCSPX-…"
+   ```
+   then restart the server. That's it — accounts created with Google link
+   automatically to any existing account using the same email.
+
+### Keepers & legacies (inherit a capsule)
+
+Seal a capsule for 30 years and name the people who should receive it:
+
+- **While composing**, open *Keepers of this capsule* and add each keeper's
+  exact email (plus an optional name). Optionally set a **family passphrase**
+  and a short **note** they'll see when the capsule opens.
+- Keepers see the capsule waiting in the **Legacies** tab of their own vault
+  from day one — with the countdown running — even though it stays sealed.
+- When the release date arrives the scheduler emails every keeper
+  (needs SMTP to be configured). They sign in with that exact email, type the
+  family passphrase once, and **claim** the capsule — after that it is
+  permanently readable for them, media included.
+- The author sees claim status next to each keeper and can add, remove or
+  re-assign keepers at any time (as long as the server is theirs to run).
+- No SMTP? Keepers can still claim from the Legacies tab — email is a
+  convenience, not a gate.
 
 ### Community standards & moderation
 

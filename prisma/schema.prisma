@@ -10,27 +10,28 @@ datasource db {
 // ─── Users & Auth ────────────────────────────────────────────────
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String? // null when the account signs in with Google only
-  googleId     String?   @unique // Google account link ("sub" claim)
-  displayName  String
-  bio          String?
-  role         String    @default("USER") // USER | ADMIN
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String? // null when the account signs in with Google only
+  googleId      String?   @unique // Google account link ("sub" claim)
+  displayName   String
+  bio           String?
+  role          String    @default("USER") // USER | ADMIN
   emailVerified DateTime?
-  banned       Boolean   @default(false) // moderation: account blocked
-  banReason    String?
-  bannedAt     DateTime?
-  violations   Int       @default(0) // moderation strikes (auto-ban at threshold)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  banned        Boolean   @default(false) // moderation: account blocked
+  banReason     String?
+  bannedAt      DateTime?
+  violations    Int       @default(0) // moderation strikes (auto-ban at threshold)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  sessions  Session[]
-  tokens    AuthToken[]
-  posts     Post[]
-  media     Media[]
-  reactions Reaction[]
-  reports   Report[]
+  sessions   Session[]
+  tokens     AuthToken[]
+  posts      Post[]
+  media      Media[]
+  reactions  Reaction[]
+  reports    Report[]
+  heirClaims Heir[] // legacies this account has claimed as a keeper/heir
 }
 
 model Session {
@@ -70,6 +71,8 @@ model Post {
   appearInArchive Boolean   @default(true)
   hidden          Boolean   @default(false) // set by moderation
   hiddenReason    String?
+  heirNote        String? // a private note from the author, shown to keepers when they open the legacy
+  heirPassHash    String? // scrypt hash of the optional family passphrase keepers must enter once
   views           Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -77,6 +80,25 @@ model Post {
   media     Media[]
   reactions Reaction[]
   reports   Report[]
+  heirs     Heir[]
+}
+
+// A person named by the author who may claim a capsule once its
+// release date arrives — the "grandchildren" in "seal it for 30 years".
+model Heir {
+  id              String    @id @default(cuid())
+  postId          String
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  email           String // lower-cased; the keeper must sign up with this exact address
+  name            String? // optional label, e.g. "granddaughter Amina"
+  claimedAt       DateTime?
+  claimedByUserId String?
+  claimedBy       User?     @relation(fields: [claimedByUserId], references: [id])
+  notifiedAt      DateTime? // unlock-notification email attempted
+  createdAt       DateTime  @default(now())
+
+  @@unique([postId, email])
+  @@index([email])
 }
 
 model Media {
@@ -89,7 +111,7 @@ model Media {
   filename    String // original file name
   storagePath String // server-side path
   mimeType    String
-  size        Float    // bytes (float keeps precision far beyond 2 GB — no size cap)
+  size        Float // bytes (float keeps precision far beyond 2 GB — no size cap)
   createdAt   DateTime @default(now())
 }
 
