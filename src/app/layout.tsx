@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   description:
     "A digital time capsule. Record video messages, photos and letters to your future children, grandchildren, and the people of 2078 — sealed until the day you choose.",
   keywords: ["time capsule", "future voices", "letters to the future", "messages", "2078"],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+  verification: {
+    google: "oeDfPU047d5Lk5H24rfTv4vU2PEvHqSo0VTYtD4FUUU",
   },
   openGraph: {
     title: "Future Voices",
