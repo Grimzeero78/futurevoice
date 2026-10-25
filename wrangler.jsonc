@@ -36,7 +36,7 @@
     {
       "binding": "DB",
       "database_name": "futurevoice",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "4e7f4aed-e29a-4b35-b0af-ea7d0a3b59ac",
       "migrations_dir": "migrations"
     }
   ],
