@@ -27,7 +27,7 @@ export type View =
   | { name: 'profile' }
   | { name: 'admin' }
 
-export type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
+export type AuthMode = 'login' | 'register'
 
 // ─── Hash router ─────────────────────────────────────────────────
 
@@ -76,14 +76,12 @@ type FVState = {
   view: View
   authOpen: boolean
   authMode: AuthMode
-  resetToken: string | null // email-link password-reset token awaiting a new password
   setSession: (u: SessionUser | null) => void
   refreshSession: () => Promise<void>
   navigate: (view: View) => void
   syncFromHash: () => void
   openAuth: (mode?: AuthMode) => void
   closeAuth: () => void
-  startPasswordReset: (token: string) => void
 }
 
 export const useFV = create<FVState>((set, get) => ({
@@ -91,7 +89,6 @@ export const useFV = create<FVState>((set, get) => ({
   view: { name: 'home' },
   authOpen: false,
   authMode: 'login',
-  resetToken: null,
 
   setSession: (u) => set({ session: u }),
 
@@ -119,8 +116,5 @@ export const useFV = create<FVState>((set, get) => ({
   },
 
   openAuth: (mode = 'login') => set({ authOpen: true, authMode: mode }),
-  closeAuth: () => set({ authOpen: false, authMode: 'login', resetToken: null }),
-
-  startPasswordReset: (token) =>
-    set({ authOpen: true, authMode: 'reset', resetToken: token }),
+  closeAuth: () => set({ authOpen: false, authMode: 'login' }),
 }))

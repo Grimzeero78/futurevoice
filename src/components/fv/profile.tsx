@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, BadgeCheck, MailWarning, Download, LogOut, User, KeyRound } from 'lucide-react'
+import { Loader2, Download, LogOut, User, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,12 +20,10 @@ export function Profile() {
 
   const [name, setName] = useState(session?.displayName ?? '')
   const [bio, setBio] = useState(session?.bio ?? '')
-  const [recoveryEmail, setRecoveryEmail] = useState(session?.email ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [savingPass, setSavingPass] = useState(false)
-  const [resending, setResending] = useState(false)
 
   if (!session) {
     return (
@@ -41,7 +39,7 @@ export function Profile() {
     e.preventDefault()
     setSavingProfile(true)
     try {
-      await api('/api/auth/profile', { method: 'PATCH', json: { displayName: name, bio, email: recoveryEmail } })
+      await api('/api/auth/profile', { method: 'PATCH', json: { displayName: name, bio } })
       await refreshSession()
       toast({ title: 'Profile saved', description: 'The future will know your name.' })
     } catch (err) {
@@ -73,25 +71,6 @@ export function Profile() {
     toast({ title: 'Signed out', description: 'The capsules will wait for you.' })
   }
 
-  async function resendVerification() {
-    setResending(true)
-    try {
-      const d = await api<{ emailSent: boolean; devVerificationToken?: string; message?: string }>('/api/auth/resend-verification', { method: 'POST' })
-      if (d.emailSent) {
-        toast({ title: 'Verification link sent', description: `Check ${session?.email} for the fresh link.` })
-      } else if (d.devVerificationToken) {
-        // Server has no SMTP — offer to verify immediately.
-        await api('/api/auth/verify-email', { method: 'POST', json: { token: d.devVerificationToken } })
-        await refreshSession()
-        toast({ title: 'Email verified', description: 'Verified directly — this server has no SMTP configured yet.' })
-      }
-    } catch (err) {
-      toast({ title: 'Could not resend', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
-    } finally {
-      setResending(false)
-    }
-  }
-
   const stats = session.stats ?? { postCount: 0, sealedCount: 0, reactionsReceived: 0 }
 
   return (
@@ -105,30 +84,9 @@ export function Profile() {
         <div>
           <h1 className="font-display text-3xl font-bold">{session.displayName}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            {session.email ? (
-              <>
-                {session.email}
-                {session.emailVerified ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-600">
-                    <BadgeCheck className="h-4 w-4" aria-hidden /> verified
-                  </span>
-                ) : (
-                  <span className="inline-flex flex-wrap items-center gap-2 text-amber-600">
-                    <span className="inline-flex items-center gap-1">
-                      <MailWarning className="h-4 w-4" aria-hidden /> email unverified
-                    </span>
-                    <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" disabled={resending} onClick={resendVerification}>
-                      {resending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                      Resend link
-                    </Button>
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="inline-flex items-center gap-1">
-                <KeyRound className="h-4 w-4" aria-hidden /> signs in with name &amp; password
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1">
+              <KeyRound className="h-4 w-4" aria-hidden /> signs in with name &amp; password
+            </span>
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Keeper of {stats.postCount} capsule{stats.postCount === 1 ? '' : 's'} ({stats.sealedCount} sealed) · {stats.reactionsReceived} signals received · joined {formatDate(session.createdAt)}
@@ -140,26 +98,9 @@ export function Profile() {
       <section className="rounded-xl border bg-card p-6 shadow-sm" aria-labelledby="profile-form-heading">
         <h2 id="profile-form-heading" className="mb-4 font-semibold">Account</h2>
         <form onSubmit={saveProfile} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Display name</Label>
-              <Input id="displayName" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={40} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="recoveryEmail">
-                Recovery email{' '}
-                <span className="font-normal text-muted-foreground">(optional)</span>
-              </Label>
-              <Input
-                id="recoveryEmail" type="email" value={recoveryEmail ?? ''}
-                onChange={(e) => setRecoveryEmail(e.target.value)}
-                placeholder="you@example.com" autoComplete="email"
-              />
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                Only used to recover a lost password. Your sign-in name stays the same.
-                {session.email && recoveryEmail !== session.email ? ' Changing it requires re-verification.' : ''}
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Display name</Label>
+            <Input id="displayName" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={40} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="bio">Bio <span className="text-xs text-muted-foreground">(shown on your public capsules)</span></Label>

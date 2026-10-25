@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import {
   Hourglass, Archive, Plus, LayoutDashboard, Moon, Sun, Download,
-  ShieldCheck, LogOut, UserCircle2, Menu, MailWarning, NotebookPen,
+  ShieldCheck, LogOut, UserCircle2, Menu, NotebookPen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,7 +53,6 @@ export function FVShell() {
   const refreshSession = useFV((s) => s.refreshSession)
   const openAuth = useFV((s) => s.openAuth)
   const setSession = useFV((s) => s.setSession)
-  const startPasswordReset = useFV((s) => s.startPasswordReset)
 
   useEffect(() => {
     syncFromHash()
@@ -61,25 +60,8 @@ export function FVShell() {
     window.addEventListener('hashchange', onHash)
     void refreshSession()
 
-    // Email links land on "/?verify=<token>" or "/?reset=<token>"
-    const params = new URLSearchParams(window.location.search)
-    const verifyToken = params.get('verify')
-    const resetToken = params.get('reset')
-    if (verifyToken) {
-      api('/api/auth/verify-email', { method: 'POST', json: { token: verifyToken } })
-        .then(async () => {
-          await refreshSession()
-          toast({ title: 'Email verified', description: 'Your voice is fully on record now.' })
-        })
-        .catch((e) => toast({ title: 'Verification failed', description: e.message, variant: 'destructive' }))
-        .finally(() => window.history.replaceState(null, '', window.location.pathname))
-    } else if (resetToken) {
-      startPasswordReset(resetToken)
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-
     return () => window.removeEventListener('hashchange', onHash)
-  }, [syncFromHash, refreshSession, startPasswordReset])
+  }, [syncFromHash, refreshSession])
 
   async function signOut() {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {})
@@ -141,7 +123,7 @@ export function FVShell() {
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>
                       <p className="font-medium">{session.displayName}</p>
-                      <p className="truncate text-xs font-normal text-muted-foreground">{session.email ?? `@${session.name ?? 'member'}`}</p>
+                      <p className="truncate text-xs font-normal text-muted-foreground">@{session.name ?? 'member'}</p>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate({ name: 'dashboard' })}>
@@ -199,16 +181,6 @@ export function FVShell() {
               </DropdownMenu>
             </div>
           </div>
-
-          {/* email verification banner — only relevant when a recovery email exists */}
-          {session && session.email && !session.emailVerified && (
-            <div className="border-t bg-amber-500/10 px-4 py-2 text-center text-xs text-amber-700 dark:text-amber-400">
-              <span className="inline-flex items-center gap-1.5">
-                <MailWarning className="h-3.5 w-3.5" aria-hidden />
-                Your email is not verified yet — open the profile page to resend the verification link.
-              </span>
-            </div>
-          )}
         </header>
 
         {/* ─── Main ─── */}

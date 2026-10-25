@@ -8,50 +8,77 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Hourglass, MailCheck, KeyRound, MailOpen } from 'lucide-react'
+import { Loader2, Hourglass, KeyRound, ShieldCheck } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { api } from '@/lib/fv-client'
 import { useFV, type AuthMode, type SessionUser } from '@/lib/fv-store'
+import { passwordIssue, passwordStrength, STRENGTH_LABELS, PASSWORD_ADVICE } from '@/lib/password'
 
 type ApiUser = Omit<SessionUser, 'stats'>
+
+function StrengthMeter({ pw }: { pw: string }) {
+  const score = passwordStrength(pw)
+  const colors = ['bg-destructive/70', 'bg-amber-500', 'bg-emerald-500', 'bg-emerald-600']
+  return (
+    <div className="space-y-1.5" aria-live="polite">
+      <div className="flex gap-1.5">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-colors ${
+              pw && i <= score ? colors[score] : 'bg-muted'
+            }`}
+          />
+        ))}
+      </div>
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        {pw ? (
+          <>
+            <span className="font-medium text-foreground">{STRENGTH_LABELS[score]}</span>
+            {score < 2 && ' — a longer password protects your vault for decades.'}
+          </>
+        ) : (
+          PASSWORD_ADVICE
+        )}
+      </p>
+    </div>
+  )
+}
 
 export function AuthDialog() {
   const open = useFV((s) => s.authOpen)
   const mode = useFV((s) => s.authMode)
-  const resetToken = useFV((s) => s.resetToken)
   const closeAuth = useFV((s) => s.closeAuth)
   const openAuth = useFV((s) => s.openAuth)
-  const startPasswordReset = useFV((s) => s.startPasswordReset)
   const refreshSession = useFV((s) => s.refreshSession)
-  const navigate = useFV((s) => s.navigate)
 
   const [busy, setBusy] = useState(false)
-  const [registered, setRegistered] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
-  const [resetInfo, setResetInfo] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
-  const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [pw, setPw] = useState('')
+  const [created, setCreated] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-      setRegistered(null)
-      setResetInfo(null)
-      setConfirmError(null)
+      setCreated(false)
+      setFormError(null)
+      setPw('')
     }
   }, [open, mode])
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setConfirmError(null)
+    setFormError(null)
     const fd = new FormData(e.currentTarget)
     const values = Object.fromEntries(fd.entries()) as Record<string, string>
 
     if (mode === 'register') {
-      const pw = values.password ?? ''
-      if (pw.length < 8) {
-        setConfirmError('Use at least 8 characters for your password.')
+      const issue = passwordIssue(values.password ?? '')
+      if (issue) {
+        setFormError(issue)
         return
       }
-      if (pw !== (values.confirmPassword ?? '')) {
-        setConfirmError('The two passwords do not match.')
+      if (values.password !== (values.confirmPassword ?? '')) {
+        setFormError('The two passwords do not match.')
         return
       }
     }
@@ -59,24 +86,18 @@ export function AuthDialog() {
     setBusy(true)
     try {
       if (mode === 'register') {
-        const data = await api<{ user: ApiUser; emailSent: boolean; devVerificationToken?: string; devNote?: string }>('/api/auth/register', {
+        await api<{ user: ApiUser }>('/api/auth/register', {
           method: 'POST',
           json: values,
         })
         await refreshSession()
-        setRegistered({ email: data.user.email ?? '', sent: data.emailSent, token: data.devVerificationToken, note: data.devNote })
+        setCreated(true)
         toast({ title: 'Welcome to Future Voices', description: 'Your account is ready — saved and hashed on this server.' })
-      } else if (mode === 'login') {
+      } else {
         await api('/api/auth/login', { method: 'POST', json: values })
         await refreshSession()
         closeAuth()
         toast({ title: 'Signed in', description: 'The future missed you.' })
-      } else if (mode === 'forgot') {
-        const data = await api<{ ok: boolean; emailSent: boolean; message: string; devResetToken?: string; devNote?: string }>('/api/auth/forgot-password', {
-          method: 'POST',
-          json: values,
-        })
-        setResetInfo({ email: String(values.email), sent: data.emailSent, token: data.devResetToken, note: data.devNote })
       }
     } catch (err) {
       toast({ title: 'That did not work', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
@@ -85,87 +106,10 @@ export function AuthDialog() {
     }
   }
 
-  async function verifyNow(token: string) {
-    try {
-      await api('/api/auth/verify-email', { method: 'POST', json: { token } })
-      await refreshSession()
-      toast({ title: 'Email verified', description: 'Your voice is fully on record now.' })
-      closeAuth()
-      navigate({ name: 'compose' })
-    } catch (err) {
-      toast({ title: 'Verification failed', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
-    }
-  }
-
-  async function doReset(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    const values = Object.fromEntries(fd.entries())
-    setBusy(true)
-    try {
-      await api('/api/auth/reset-password', { method: 'POST', json: values })
-      toast({ title: 'Password updated', description: 'Sign in with your new password.' })
-      setResetInfo(null)
-      openAuth('login')
-    } catch (err) {
-      toast({ title: 'Reset failed', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const titles: Record<AuthMode, [string, string]> = {
     login: ['Welcome back', 'Sign in with your name and password.'],
-    register: ['Claim your voice in the future', 'A name and a password — that is all an account needs.'],
-    forgot: ['Reset your password', 'Enter the recovery email on the account and we will send a reset link.'],
-    reset: ['Choose a new password', 'Your reset link is valid — set a new password below.'],
+    register: ['Claim your voice in the future', 'A name and a strong password — that is all an account needs.'],
   }
-
-  const newPasswordForm = (token: string) => (
-    <form onSubmit={doReset} className="space-y-4">
-      <input type="hidden" name="token" value={token} />
-      <div className="space-y-2">
-        <Label htmlFor="newPassword">New password</Label>
-        <Input id="newPassword" name="newPassword" type="password" required minLength={8} placeholder="At least 8 characters" />
-      </div>
-      <Button type="submit" className="w-full" disabled={busy}>
-        {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Set new password
-      </Button>
-      <Button type="button" variant="ghost" className="w-full" onClick={() => openAuth('login')}>
-        Back to sign in
-      </Button>
-    </form>
-  )
-
-  const inboxNote = (email: string) => (
-    <div className="space-y-4">
-      <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-500/5 p-3 text-sm">
-        <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
-        <div>
-          <p className="font-medium">Check your inbox</p>
-          <p className="mt-1 text-muted-foreground">
-            A link was sent to <span className="font-medium text-foreground">{email}</span>. Open it on this device to continue.
-          </p>
-        </div>
-      </div>
-      <Button variant="ghost" className="w-full" onClick={() => openAuth('login')}>Back to sign in</Button>
-    </div>
-  )
-
-  const fallbackTokenNote = (token: string, note?: string, onContinue?: () => void) => (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
-        <p className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
-          <MailOpen className="h-3.5 w-3.5" /> Server mail not configured
-        </p>
-        <p>{note ?? 'This server has no SMTP configured, so the link is shown here instead of being emailed.'}</p>
-        <code className="mt-2 block break-all rounded bg-muted px-2 py-1 font-mono text-[10px]">{token}</code>
-      </div>
-      {onContinue && (
-        <Button className="w-full" onClick={onContinue}>Continue</Button>
-      )}
-    </div>
-  )
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && closeAuth()}>
@@ -178,102 +122,49 @@ export function AuthDialog() {
           <DialogDescription className="text-center">{titles[mode][1]}</DialogDescription>
         </DialogHeader>
 
-        {/* ── reset mode: arrived from an email link ── */}
-        {mode === 'reset' && resetToken ? (
-          newPasswordForm(resetToken)
-        ) : mode === 'reset' ? (
-          <div className="space-y-4 text-center text-sm text-muted-foreground">
-            <p>This reset link is missing its token. Request a fresh one.</p>
-            <Button variant="outline" className="w-full" onClick={() => openAuth('forgot')}>Request a new link</Button>
-          </div>
-        ) : registered ? (
-          /* ── post-registration: email verification step (only when a recovery email was given) ── */
-          registered.sent ? (
-            inboxNote(registered.email)
-          ) : registered.token ? (
-            <div className="space-y-4">
-              {fallbackTokenNote(registered.token, registered.note, () => registered.token && verifyNow(registered.token))}
-              <Button variant="ghost" className="w-full" onClick={closeAuth}>
-                I&apos;ll verify later
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-500/5 p-3 text-sm">
-                <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
-                <div>
-                  <p className="font-medium">You&apos;re in.</p>
-                  <p className="mt-1 text-muted-foreground">
-                    No recovery email was added — that is perfectly fine. Your name and password are all you need,
-                    and they are stored hashed on this server. You can add a recovery email later on your profile page.
-                  </p>
-                </div>
-              </div>
-              <Button className="w-full" onClick={closeAuth}>Start writing</Button>
-            </div>
-          )
-        ) : resetInfo ? (
-          /* ── password reset step ── */
-          resetInfo.sent ? (
-            inboxNote(resetInfo.email)
-          ) : resetInfo.token ? (
-            <div className="space-y-4">
-              {fallbackTokenNote(resetInfo.token, resetInfo.note, () => startPasswordReset(resetInfo.token!))}
-            </div>
-          ) : (
-            <div className="space-y-4 text-center text-sm text-muted-foreground">
-              <p>No account matched that email — check for typos.</p>
-              <Button variant="outline" className="w-full" onClick={() => openAuth('forgot')}>Try another email</Button>
-            </div>
-          )
-        ) : (
-          /* ── login / register / forgot forms ── */
-          <form onSubmit={submit} className="space-y-4">
-            {mode !== 'forgot' && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Your name</Label>
-                <Input
-                  id="name" name="name" required
-                  minLength={2} maxLength={40}
-                  placeholder={mode === 'register' ? 'e.g. Grace Wanjiku' : 'Your name or recovery email'}
-                  autoComplete={mode === 'register' ? 'username' : 'username'}
-                />
-                {mode === 'register' && (
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    This is how you will sign in for the next 100 years — pick a name you will not forget.
-                  </p>
-                )}
-              </div>
-            )}
-            {mode === 'register' && (
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  Recovery email{' '}
-                  <span className="font-normal text-muted-foreground">(optional)</span>
-                </Label>
-                <Input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" />
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  Used only to reset a lost password — never required to sign in.
+        {created ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-500/5 p-3 text-sm">
+              <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+              <div>
+                <p className="font-medium">You&apos;re in.</p>
+                <p className="mt-1 text-muted-foreground">
+                  Your name and password are all you need — they are stored hashed on this server.
+                  Write your password down somewhere safe: there is no email reset, by design. Your
+                  vault outlives inboxes.
                 </p>
               </div>
-            )}
-            {mode === 'forgot' && (
-              <div className="space-y-2">
-                <Label htmlFor="email">Recovery email</Label>
-                <Input id="email" name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
-              </div>
-            )}
-            {mode !== 'forgot' && (
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password" name="password" type="password" required
-                  minLength={mode === 'register' ? 8 : undefined}
-                  placeholder={mode === 'register' ? 'At least 8 characters' : 'Your password'}
-                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                />
-              </div>
-            )}
+            </div>
+            <Button className="w-full" onClick={closeAuth}>Start writing</Button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Your name</Label>
+              <Input
+                id="name" name="name" required
+                minLength={2} maxLength={40}
+                placeholder={mode === 'register' ? 'e.g. Grace Wanjiku' : 'Your name'}
+                autoComplete="username"
+              />
+              {mode === 'register' && (
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  This is how you will sign in for the next 100 years — pick a name you will not forget.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password" name="password" type="password" required
+                minLength={mode === 'register' ? 8 : undefined}
+                placeholder={mode === 'register' ? 'At least 8 characters — letters and numbers' : 'Your password'}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                value={mode === 'register' ? pw : undefined}
+                onChange={mode === 'register' ? (e) => setPw(e.target.value) : undefined}
+              />
+              {mode === 'register' && <StrengthMeter pw={pw} />}
+            </div>
             {mode === 'register' && (
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm password</Label>
@@ -282,37 +173,36 @@ export function AuthDialog() {
                   minLength={8}
                   placeholder="Type the same password again"
                   autoComplete="new-password"
-                  aria-invalid={!!confirmError}
+                  aria-invalid={!!formError}
                 />
-                {confirmError && <p className="text-xs text-destructive">{confirmError}</p>}
+                {formError && <p className="text-xs text-destructive">{formError}</p>}
+              </div>
+            )}
+            {mode === 'register' && (
+              <div className="flex items-start gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-[11px] leading-relaxed text-muted-foreground">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                <p>
+                  Choose a password you have never used anywhere else. There is no &ldquo;forgot
+                  password&rdquo; email here — your words are sealed without inboxes, so your password is
+                  the only key.
+                </p>
               </div>
             )}
             <Button type="submit" className="w-full" disabled={busy}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {mode === 'login' ? 'Sign in' : mode === 'register' ? 'Create account' : 'Send reset link'}
+              {mode === 'login' ? 'Sign in' : 'Create account'}
             </Button>
 
             <Separator />
 
             <div className="flex flex-col gap-1 text-center text-sm text-muted-foreground">
-              {mode === 'login' && (
-                <>
-                  <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('register')}>
-                    New here? Create an account
-                  </button>
-                  <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('forgot')}>
-                    Forgot your password?
-                  </button>
-                </>
-              )}
-              {mode === 'register' && (
+              {mode === 'login' ? (
+                <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('register')}>
+                  New here? Create an account
+                </button>
+              ) : (
                 <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('login')}>
                   Already have an account? Sign in
-                </button>
-              )}
-              {mode === 'forgot' && (
-                <button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => openAuth('login')}>
-                  Back to sign in
                 </button>
               )}
             </div>

@@ -100,7 +100,7 @@ export function Legacies() {
           <p className="font-display text-lg font-semibold">Nothing is kept for this account — yet.</p>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
             When a parent, grandparent or friend seals a capsule and writes{' '}
-            <span className="font-medium text-foreground">{session.email}</span> among its keepers,
+            <span className="font-medium text-foreground">{session.displayName}</span> as one of its keepers,
             it will appear here on the day it opens.
           </p>
         </div>

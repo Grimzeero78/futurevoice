@@ -27,11 +27,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Your name and password are required.' }, { status: 400 })
     }
 
-    // A name is the normal sign-in; an email also works for accounts that
-    // predate name sign-in (or that were addressed by email as keepers).
-    const user =
-      (await db.user.findUnique({ where: { name: identifier } })) ??
-      (await db.user.findUnique({ where: { email: identifier } }))
+    // Sign-in is by name only. Email is not part of authentication — a
+    // time capsule does not need an inbox, and a smaller surface is a
+    // safer surface.
+    const user = await db.user.findUnique({ where: { name: identifier } })
 
     if (user && user.lockedUntil && user.lockedUntil > new Date()) {
       const mins = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
@@ -82,10 +81,8 @@ export async function POST(req: NextRequest) {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
         displayName: user.displayName,
         role: user.role,
-        emailVerified: user.emailVerified,
       },
     })
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt))

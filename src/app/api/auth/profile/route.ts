@@ -7,16 +7,18 @@ import {
   errorResponse,
 } from '@/lib/auth'
 import { rateLimitByIp } from '@/lib/rate-limit'
+import { passwordIssue } from '@/lib/password'
 
 export const runtime = 'nodejs'
 
-// Update profile (display name, bio, recovery email)
+// Update profile (display name, bio). No email — a time capsule does
+// not need an inbox.
 export async function PATCH(req: NextRequest) {
   try {
     const user = await requireUser(req)
     const body = await req.json().catch(() => ({}))
 
-    const data: { displayName?: string; bio?: string | null; email?: string | null; emailVerified?: Date | null } = {}
+    const data: { displayName?: string; bio?: string | null } = {}
     if (body.displayName !== undefined) {
       const name = String(body.displayName).trim()
       if (name.length < 2 || name.length > 40) {
@@ -31,32 +33,15 @@ export async function PATCH(req: NextRequest) {
       }
       data.bio = bio || null
     }
-    if (body.email !== undefined) {
-      const email = String(body.email ?? '').trim().toLowerCase()
-      if (email) {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          return NextResponse.json({ error: 'That recovery email does not look right.' }, { status: 400 })
-        }
-        const taken = await db.user.findFirst({ where: { email, id: { not: user.id } } })
-        if (taken) {
-          return NextResponse.json({ error: 'That email is already registered on another account.' }, { status: 409 })
-        }
-      }
-      data.email = email || null
-      // a changed recovery email must be re-verified before it can receive anything
-      data.emailVerified = null
-    }
 
     const updated = await db.user.update({ where: { id: user.id }, data })
     return NextResponse.json({
       user: {
         id: updated.id,
         name: updated.name,
-        email: updated.email,
         displayName: updated.displayName,
         bio: updated.bio,
         role: updated.role,
-        emailVerified: updated.emailVerified,
       },
     })
   } catch (e) {
@@ -77,6 +62,10 @@ export async function POST(req: NextRequest) {
 
     if (newPassword.length < 8) {
       return NextResponse.json({ error: 'New password must be at least 8 characters long.' }, { status: 400 })
+    }
+    const pwProblem = passwordIssue(newPassword)
+    if (pwProblem) {
+      return NextResponse.json({ error: pwProblem }, { status: 400 })
     }
 
     const record = await db.user.findUnique({ where: { id: user.id } })
