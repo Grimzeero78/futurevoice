@@ -1,8 +1,8 @@
 # Future Voices on Cloudflare — free hosting guide
 
-Your whole platform — accounts, capsules, magic keys, diary, photos/videos —
-running on Cloudflare's free plan, straight from this repo. **Cost: $0.**
-No credit card needed. Your URL will look like:
+Your whole platform — accounts, letters, magic keys, diary — running on
+Cloudflare's free plan, straight from this GitHub repo. **Cost: $0.**
+Your URL will look like:
 
 ```
 https://futurevoice.<your-subdomain>.workers.dev
@@ -16,129 +16,193 @@ https://futurevoice.<your-subdomain>.workers.dev
 | --- | --- | --- |
 | Code runtime | Node.js | Cloudflare Workers |
 | Database | SQLite file (`db/custom.db`) | Cloudflare D1 (serverless SQLite, free 5 GB) |
-| Uploaded photos/videos | `uploads/` folder on disk | Cloudflare R2 bucket (free 10 GB) |
-| Email | SMTP (nodemailer) | Resend or Brevo HTTP API (free tiers) |
+| Uploaded photos/videos | `uploads/` folder on disk | Cloudflare R2 bucket — **optional**, see below |
+| Email | SMTP (nodemailer) | Brevo or Resend HTTP API (free tiers) |
 
 Same code, same features, same security. The app detects where it runs.
 
-**Two Cloudflare limits to know:** single files up to ~90 MB on Cloudflare
-(self-host has no limit), and Workers block raw SMTP — that's why email uses
-an HTTP provider there.
+**Two limits to know on Cloudflare:** single files up to ~90 MB, and
+Workers can't speak raw SMTP (that's why email uses an HTTP provider).
 
 ---
 
-## Setup (one time, ~15 minutes, from Windows PowerShell)
+## The dashboard way (recommended — no commands to type)
 
-You need Node.js installed (you already have it — you run the site locally).
+You need only two things: your free Cloudflare account
+(<https://dash.cloudflare.com/sign-up>) and your GitHub repo. ~10 minutes.
 
-### 1. Log in to Cloudflare
+### Step 1 — Connect the repo to a Worker
 
-Create a free account at <https://dash.cloudflare.com/sign-up> if you don't
-have one. Then:
+1. Cloudflare dashboard → **Compute (Workers & Pages)** → **Create** →
+   **Import a repository** (you may need to **Connect GitHub** first and
+   allow access to `Grimzeero78/futurevoice`).
+2. Name the worker `futurevoice`.
+3. Set the two build commands **exactly** like this:
+   - **Build command:** `npx opennextjs-cloudflare build`
+   - **Deploy command:** `npx opennextjs-cloudflare deploy`
+4. Click **Create and deploy**.
 
-```powershell
-cd path\to\futurevoice
-npx wrangler login
+> The first deploy is allowed to fail — the database id isn't wired in yet
+> (next step). If your worker already exists from an earlier attempt: open
+> **futurevoice → Settings → Build →** and make the two commands above
+> match exactly, then continue.
+
+### Step 2 — Create the database
+
+1. Cloudflare dashboard → **Storage & Databases → D1 SQL** →
+   **Create database**.
+2. Name it `futurevoice`, location **Auto**, Create.
+3. On the database page, **copy the Database ID** (a string like
+   `9f42a8c1-....-....`). You'll paste it in the next step.
+
+### Step 3 — Give the worker the database id (one tiny GitHub edit)
+
+1. On **github.com**, open your repo → click `wrangler.jsonc` → the
+   **pencil (edit) icon**.
+2. Replace `REPLACE_WITH_YOUR_D1_DATABASE_ID` with the id you copied.
+3. Click **Commit changes**.
+
+Cloudflare sees the push and rebuilds automatically — this time the deploy
+succeeds.
+
+### Step 4 — Create the tables (one click)
+
+Open this address once (your real address is shown on the worker page —
+Workers & Pages → futurevoice → **Visit**):
+
+```
+https://futurevoice.<your-subdomain>.workers.dev/api/setup
 ```
 
-A browser window opens — click **Allow**.
+It prints `Your database is ready` and creates all tables. That's the whole
+setup — no SQL, no command line.
 
-### 2. Create the database and the file bucket
+### Step 5 — Open your site 🚀
 
-```powershell
-npx wrangler d1 create futurevoice
-npx wrangler r2 bucket create futurevoice-uploads
-```
-
-The first command prints a block containing `"database_id": "xxxx..."`.
-**Copy that id.**
-
-### 3. Put the database id in `wrangler.jsonc`
-
-Open `wrangler.jsonc` and replace `REPLACE_WITH_YOUR_D1_DATABASE_ID` with the
-id you copied. Also set `APP_URL` to your future address (you'll see your
-subdomain after the first deploy — you can come back and fix it later).
-
-### 4. Create the tables in the database
-
-```powershell
-npm run cf:migrate:remote
-```
-
-Answer **yes** when it asks to confirm.
-
-### 5. Set your secrets
-
-```powershell
-npx wrangler secret put APP_SECRET
-```
-
-Paste a long random string (any 40+ characters, used for the magic-key
-fingerprints and media links) and press Enter.
-
-**Email (optional now, needed before unlock-day emails can send):**
-
-```powershell
-npx wrangler secret put RESEND_API_KEY     # or BREVO_API_KEY — see below
-npx wrangler secret put MAIL_FROM
-```
-
-- **Resend** (<https://resend.com>, free 3,000 emails/month): sign up →
-  verify a domain you own → create an API key. Needs a domain (~$10/yr).
-- **Brevo** (<https://brevo.com>, free 300 emails/day): sign up → verify your
-  own email address as a sender → create an API key. **Works without owning
-  a domain.**
-- `MAIL_FROM` example: `Future Voices <capsule@yourdomain.com>` (must match
-  the sender you verified).
-
-Skipping this is fine to start — the site works fully, email just logs
-instead of sending until you add a key.
-
-### 6. Deploy 🚀
-
-```powershell
-npm run cf:deploy
-```
-
-At the end it prints your real URL. Open it — **the first account you
-register becomes the admin.** That's it. Your time capsule is live for the
+Go to your workers.dev address and **Sign up**. **The first account
+registered becomes the admin.** Your time capsule platform is live for the
 whole world.
 
-*(Later, fix `APP_URL` in `wrangler.jsonc` to the printed URL and run
-`npm run cf:deploy` again — links in emails and the secure cookie flag use it.)*
+### Step 6 (recommended) — Protect the magic keys with a secret
+
+Workers & Pages → futurevoice → **Settings → Variables and Secrets →
+Add** → Type **Secret**:
+
+- Name: `APP_SECRET`
+- Value: any long random text (40+ characters, e.g. from
+  <https://www.random.org/strings/>)
+
+This makes magic keys uncrackable even if the database ever leaks. Setting
+it takes a minute — do it before you seal anything serious.
+
+### Step 7 (recommended) — Fix the site address
+
+After the first deploy you know your real address. Edit `wrangler.jsonc`
+on GitHub again and replace `<your-subdomain>` inside `APP_URL` with it:
+
+```jsonc
+"APP_URL": "https://futurevoice.your-actual-name.workers.dev"
+```
+
+Commit — done. (Until you do this, everything still works; it just makes
+email links and cookies exactly right.)
+
+### Updating the site later
+
+Change anything in the code on GitHub (or `git push`) → Cloudflare rebuilds
+and deploys automatically. Nothing to run.
 
 ---
 
-## Updating the site later
+## Photos & videos (optional — needs a payment card)
 
-Changed something in the code? Two commands:
+Cloudflare asks for a **payment card** when enabling R2 storage, even
+though the first 10 GB are free (you are not charged under the free
+limits). The site ships with media storage switched off so you can deploy
+with no card at all.
 
-```powershell
-git pull
-npm install
-npm run cf:deploy
+- **Without R2:** letters, magic keys, diary, accounts — everything works.
+  Uploading a photo shows a friendly "media storage is not connected"
+  message instead.
+- **To switch media on later** (once you can add a card, e.g. a prepaid or
+  virtual card): dashboard → **Storage & Databases → R2 → Create bucket**
+  → name it `futurevoice-uploads` → then edit `wrangler.jsonc` on GitHub
+  and add this line inside the `{ }` (right after the `d1_databases`
+  block, keep the comma rules — the file shows exactly where):
+
+```jsonc
+"r2_buckets": [ { "binding": "UPLOADS", "bucket_name": "futurevoice-uploads" } ],
 ```
 
-If you ever change `prisma/schema.prisma`: also generate new migration SQL
+Commit → redeploy → uploads flow into R2. Files already sealed as
+text-only capsules are not affected.
+
+- **Want truly unlimited files with no card?** Run the self-hosted version
+  (bottom of this page) on any machine — that mode has no size cap.
+
+---
+
+## Email (optional — add any time)
+
+Without an email key the site works fully; unlock-day notes just log
+instead of sending. To send real email from Cloudflare:
+
+- **Brevo** (<https://brevo.com>) — free 300 emails/day, **no domain
+  needed**: sign up → verify your own email as a sender → create an API
+  key.
+- **Resend** (<https://resend.com>) — free 3,000/month, needs a domain you
+  own (~$10/yr).
+
+Then add two Secrets (same place as APP_SECRET, Step 6):
+
+- `BREVO_API_KEY` **or** `RESEND_API_KEY` → your key
+- `MAIL_FROM` → e.g. `Future Voices <you@example.com>`
+  (must match the sender you verified)
+
+### Keeping unlock-day emails punctual
+
+Workers don't wake themselves on a schedule. Set `CRON_SECRET` in the
+`vars` of `wrangler.jsonc` (edit on GitHub), then create one free daily
+job at <https://cron-job.org> pointing to:
+
+```
+https://futurevoice.<your-subdomain>.workers.dev/api/cron?key=YOUR_CRON_SECRET
+```
+
+Keepers still get their email even without it — the claim flow re-checks
+on every sign-in — but the daily sweep is the punctual postman.
+
+---
+
+## The command-line way (alternative)
+
+Prefer typing commands from Windows PowerShell? You need Node.js
+installed. From the repo folder:
+
+```powershell
+npx wrangler login                                # browser opens → Allow
+npx wrangler d1 create futurevoice                # copy database_id from output
+#   → paste it into wrangler.jsonc (replace REPLACE_WITH_YOUR_D1_DATABASE_ID)
+npm run cf:migrate:remote                         # create tables (answer yes)
+npx wrangler secret put APP_SECRET                # paste a long random string
+npm run cf:deploy                                 # prints your real URL
+```
+
+Optional email secrets: `npx wrangler secret put BREVO_API_KEY` (or
+`RESEND_API_KEY`) and `npx wrangler secret put MAIL_FROM`. Optional media:
+`npx wrangler r2 bucket create futurevoice-uploads` + the `r2_buckets`
+block from the section above.
+
+If you change `prisma/schema.prisma` later: generate new migration SQL,
+refresh the setup data, apply:
 
 ```powershell
 npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script --output migrations/0002_whatever.sql
+node scripts/gen-d1-schema.mjs
 npm run cf:migrate:remote
 ```
 
----
-
-## Your own domain (optional, later)
-
-- Buy a domain (any registrar) and add it to Cloudflare (free plan), **or**
-  transfer DNS of an existing domain to Cloudflare.
-- In the dashboard: **Workers & Pages → futurevoice → Settings → Domains &
-  Routes → Add → Custom domain.** Cloudflare handles the HTTPS certificate.
-- Update `APP_URL` in `wrangler.jsonc` and redeploy.
-
----
-
-## Test it on your machine before deploying (optional)
+### Test on your machine before deploying (optional)
 
 ```powershell
 npm install
@@ -146,38 +210,21 @@ npm run cf:migrate:local    # creates tables in a local D1 copy
 npm run cf:preview          # runs the REAL Workers runtime locally on :8787
 ```
 
-Everything works the same — local D1, local R2 simulation — so what you see
-here is what will happen in production.
-
----
-
-## Keeping unlock-day emails flowing
-
-Cloudflare Workers don't wake themselves on a schedule. The unlock-day email
-sweep is an HTTP endpoint: `/api/cron?key=YOUR_CRON_SECRET`. Set
-`CRON_SECRET` in `wrangler.jsonc` (vars) + redeploy, then create one free
-daily job at <https://cron-job.org> pointing to:
-
-```
-https://futurevoice.<your-subdomain>.workers.dev/api/cron?key=YOUR_CRON_SECRET
-```
-
-Keepers get their email the same day a capsule opens even without it — the
-claim flow re-checks on every sign-in — but the daily sweep is the punctual
-postman.
-
 ---
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| `npm run cf:deploy` says "database_id" wrong | You skipped step 3 — paste the real id into `wrangler.jsonc` |
-| `10021` / validation errors on deploy | `npx wrangler login` again (session expired) |
-| Site is up but uploads fail | R2 bucket missing — run `npx wrangler r2 bucket create futurevoice-uploads` |
-| "Error 1101" after deploy | Run `npm run cf:migrate:remote` (tables missing) |
-| Emails not arriving | No mail key set, or sender not verified in Resend/Brevo |
-| Want a file bigger than 90 MB | Upload it self-hosted, or split it — Cloudflare free tier caps request bodies |
+| Deploy fails: `database_id` / "could not find database" | Step 3 not done, or the id is wrong — paste the real D1 Database ID into `wrangler.jsonc` and commit |
+| Deploy fails: `.open-next/worker.js` not found | The **Deploy command** is wrong — it must be exactly `npx opennextjs-cloudflare deploy` |
+| Build fails early | The **Build command** must be exactly `npx opennextjs-cloudflare build` (it runs the Next.js build itself) |
+| Site is up but every page errors (Error 1101) | Tables missing — open `/api/setup` once |
+| `/api/setup` says it can't reach the database | The D1 id in `wrangler.jsonc` doesn't match your database, or the last deploy hasn't finished — fix and redeploy, then refresh |
+| Uploads say media storage is not connected | R2 isn't enabled (needs a card) — see "Photos & videos" above |
+| Emails not arriving | No mail key set, or sender not verified in Brevo/Resend |
+| Login says "too many attempts" | Wait 15 minutes — brute-force protection doing its job |
+| Want a file bigger than 90 MB | Self-host: that mode has no size limit |
 
 ---
 

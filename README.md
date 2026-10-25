@@ -95,23 +95,25 @@ pm2 save && pm2 startup      # restarts on reboot
 
 ## Deploy on your own URL
 
-### Option A — Cloudflare free hosting ($0, no card, ~15 min)
+### Option A — Cloudflare free hosting ($0, no card needed)
 
-Full-stack on Cloudflare Workers + D1 + R2 from this repo — see
-**[CLOUDFLARE.md](CLOUDFLARE.md)** for the step-by-step Windows/PowerShell
-guide. Short version:
+Full-stack on Cloudflare Workers + D1 — connect the GitHub repo in the
+Cloudflare dashboard and you're live. **[CLOUDFLARE.md](CLOUDFLARE.md)**
+has the click-by-click guide; the short version:
 
-```bash
-npx wrangler login
-npx wrangler d1 create futurevoice          # paste database_id into wrangler.jsonc
-npx wrangler r2 bucket create futurevoice-uploads
-npm run cf:migrate:remote
-npx wrangler secret put APP_SECRET
-npm run cf:deploy                           # → https://futurevoice.<you>.workers.dev
-```
+1. Workers & Pages → Create → Import the repo — build command
+   `npx opennextjs-cloudflare build`, deploy command
+   `npx opennextjs-cloudflare deploy`
+2. Create a D1 database named `futurevoice` → copy its Database ID →
+   paste it into `wrangler.jsonc` (edit right on github.com)
+3. Open `https://futurevoice.<you>.workers.dev/api/setup` once
+4. Sign up — the first account becomes the admin
 
-First account registered = admin. Email delivery on Cloudflare uses the
-Resend or Brevo HTTP API (free tiers) — add the key as a secret when ready.
+Photos/videos on Cloudflare need R2, which asks for a payment card — it's
+optional and switches off by default (text capsules, magic keys and diary
+work without it). Email uses the Brevo or Resend HTTP API (free tiers) —
+add a key as a secret when ready. Self-host (below) keeps unlimited files
+with no card.
 
 ### Option B — Docker (self-host, no size limits)
 

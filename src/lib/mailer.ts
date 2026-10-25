@@ -23,7 +23,9 @@ export const smtpConfigured = mailConfigured
 
 export function appUrl(req?: Request): string {
   const configured = env('APP_URL')
-  if (configured) return configured.replace(/\/$/, '')
+  // A value still containing the "<your-subdomain>" placeholder from
+  // wrangler.jsonc is not a real URL — fall back to the request origin.
+  if (configured && !configured.includes('<')) return configured.replace(/\/$/, '')
   if (req) {
     const proto = req.headers.get('x-forwarded-proto') ?? 'http'
     const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host')

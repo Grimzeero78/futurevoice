@@ -1,10 +1,26 @@
-// ─── Future Voices on Cloudflare (Workers + D1 + R2) ─────────────
+// ─── Future Voices on Cloudflare (Workers + D1) ──────────────────
 //
-// Used by: npm run cf:build / cf:preview / cf:deploy  (see CLOUDFLARE.md)
+// Used by the Cloudflare dashboard build (Workers Builds) and by
+// npm run cf:build / cf:preview / cf:deploy  — see CLOUDFLARE.md.
 //
 // ONE thing you must change before deploying: create your D1 database
-//   npx wrangler d1 create futurevoice
-// and paste its database_id below. Everything else works as-is.
+// and paste its id below.
+//
+//   • Dashboard way (recommended): Cloudflare → Storage & Databases →
+//     D1 SQL → Create database → name it "futurevoice" → copy the
+//     Database ID → edit THIS file on github.com (pencil icon) and
+//     replace REPLACE_WITH_YOUR_D1_DATABASE_ID → Commit. Cloudflare
+//     redeploys automatically.
+//   • CLI way: npx wrangler d1 create futurevoice
+//
+// Photos & videos are OPTIONAL on Cloudflare: enabling R2 media storage
+// requires a payment card on the Cloudflare account (even on the free
+// plan), so it ships switched off. Everything else — letters, magic
+// keys, diary — works without it. To switch media on later, create the
+// bucket and add this block inside the { } below (see CLOUDFLARE.md →
+// "Photos & videos"):
+//
+//   "r2_buckets": [ { "binding": "UPLOADS", "bucket_name": "futurevoice-uploads" } ],
 
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -20,26 +36,24 @@
     {
       "binding": "DB",
       "database_name": "futurevoice",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "UPLOADS",
-      "bucket_name": "futurevoice-uploads"
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
     }
   ],
   "vars": {
-    // Public URL of the deployment — used in emails and secure-cookie logic.
-    // Replace <your-subdomain> with the one shown after `npm run cf:deploy`.
+    // Public URL of the deployment. Leave the placeholder for the first
+    // deploy — then replace <your-subdomain> with the subdomain shown at
+    // the end of the deploy (email links + cookie security use it).
     "APP_URL": "https://futurevoice.<your-subdomain>.workers.dev"
     // Optional knobs (defaults shown):
     // "MODERATION_BAN_THRESHOLD": "3",
     // "MODERATION_AUTO_HIDE_REPORTS": "3",
     // "CRON_SECRET": "set-me-and-call-/api/cron?key=... daily"
   }
-  // Secrets (never in this file) — set once with:
-  //   npx wrangler secret put APP_SECRET
-  //   npx wrangler secret put RESEND_API_KEY      (or BREVO_API_KEY)
-  //   npx wrangler secret put MAIL_FROM           e.g. "Future Voices <you@yourdomain>"
+  // Secrets (never in this file) — set once, either in the dashboard
+  // (Workers & Pages → futurevoice → Settings → Variables and Secrets →
+  // Add → Type: Secret) or with:
+  //   npx wrangler secret put APP_SECRET      long random string — protects magic keys
+  //   npx wrangler secret put RESEND_API_KEY  or BREVO_API_KEY — optional email
+  //   npx wrangler secret put MAIL_FROM       e.g. "Future Voices <you@yourdomain>"
 }

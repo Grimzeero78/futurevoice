@@ -85,7 +85,12 @@ function r2(): R2Bucket {
       getCloudflareContext: () => { env: { UPLOADS: R2Bucket } }
     }
     const bucket = getCloudflareContext().env.UPLOADS
-    if (!bucket) throw new HttpError(500, 'R2 bucket binding (UPLOADS) is missing.')
+    if (!bucket) {
+      throw new HttpError(
+        503,
+        'Media storage is not connected on this deployment yet — photos, videos and audio are switched off. Text capsules, magic keys and the diary work fine. To enable media, see CLOUDFLARE.md → "Photos & videos" (R2).',
+      )
+    }
     return bucket
   } catch (e) {
     if (e instanceof HttpError) throw e
