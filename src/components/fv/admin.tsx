@@ -275,7 +275,7 @@ export function Admin() {
                         {m.violations > 0 && !m.banned && <Badge className="bg-amber-600 text-white">{m.violations} strike{m.violations === 1 ? '' : 's'}</Badge>}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {m.email} · joined {formatDate(m.createdAt)} · {m._count.posts} capsule{m._count.posts === 1 ? '' : 's'}
+                        {m.email ? `${m.email} · ` : ''}joined {formatDate(m.createdAt)} · {m._count.posts} capsule{m._count.posts === 1 ? '' : 's'}
                         {m.banned && m.banReason ? ` · ${m.banReason}` : ''}
                       </p>
                     </div>

@@ -2,28 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Hourglass, MailCheck, KeyRound, MailOpen, Settings } from 'lucide-react'
+import { Loader2, Hourglass, MailCheck, KeyRound, MailOpen } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { api } from '@/lib/fv-client'
 import { useFV, type AuthMode, type SessionUser } from '@/lib/fv-store'
-
-// Google "G" mark (inline SVG so no external asset is needed)
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" aria-hidden>
-      <path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.2H12v4.1h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.7 2.9c2.3-2.1 3.7-5.2 3.7-8.6z" />
-      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.7-2.9c-1 .7-2.4 1.2-4.2 1.2-3.2 0-5.9-2.1-6.8-5.1L1.3 17.2C3.3 21.2 7.3 24 12 24z" />
-      <path fill="#FBBC05" d="M5.2 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3L1.3 6.8C.5 8.4 0 10.1 0 12s.5 3.6 1.3 5.2l3.9-2.9z" />
-      <path fill="#EA4335" d="M12 4.7c2.3 0 3.8 1 4.7 1.8l3.4-3.3C17.9 1.2 15.2 0 12 0 7.3 0 3.3 2.8 1.3 6.8l3.9 2.9c.9-3 3.6-5 6.8-5z" />
-    </svg>
-  )
-}
 
 type ApiUser = Omit<SessionUser, 'stats'>
 
@@ -40,29 +28,34 @@ export function AuthDialog() {
   const [busy, setBusy] = useState(false)
   const [registered, setRegistered] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
   const [resetInfo, setResetInfo] = useState<{ email: string; sent: boolean; token?: string; note?: string } | null>(null)
-  const [googleReady, setGoogleReady] = useState(false)
-  const [googleSetupOpen, setGoogleSetupOpen] = useState(false)
-  const [googleTried, setGoogleTried] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-       
       setRegistered(null)
       setResetInfo(null)
-      // ask the server once per open whether Google sign-in is configured
-      fetch('/api/auth/providers', { cache: 'no-store' })
-        .then((r) => r.json())
-        .then((d) => setGoogleReady(Boolean(d.google)))
-        .catch(() => setGoogleReady(false))
-       
-      setGoogleTried(false)
+      setConfirmError(null)
     }
   }, [open, mode])
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setConfirmError(null)
     const fd = new FormData(e.currentTarget)
-    const values = Object.fromEntries(fd.entries())
+    const values = Object.fromEntries(fd.entries()) as Record<string, string>
+
+    if (mode === 'register') {
+      const pw = values.password ?? ''
+      if (pw.length < 8) {
+        setConfirmError('Use at least 8 characters for your password.')
+        return
+      }
+      if (pw !== (values.confirmPassword ?? '')) {
+        setConfirmError('The two passwords do not match.')
+        return
+      }
+    }
+
     setBusy(true)
     try {
       if (mode === 'register') {
@@ -71,8 +64,8 @@ export function AuthDialog() {
           json: values,
         })
         await refreshSession()
-        setRegistered({ email: data.user.email, sent: data.emailSent, token: data.devVerificationToken, note: data.devNote })
-        toast({ title: 'Welcome to Future Voices', description: 'Your account is ready.' })
+        setRegistered({ email: data.user.email ?? '', sent: data.emailSent, token: data.devVerificationToken, note: data.devNote })
+        toast({ title: 'Welcome to Future Voices', description: 'Your account is ready — saved and hashed on this server.' })
       } else if (mode === 'login') {
         await api('/api/auth/login', { method: 'POST', json: values })
         await refreshSession()
@@ -121,48 +114,10 @@ export function AuthDialog() {
     }
   }
 
-  // The Google button is ALWAYS shown — when the server has no Google
-  // credentials yet, clicking it opens a one-time setup guide instead.
-  const googleButton = mode !== 'forgot' && (
-    <>
-      <a
-        href={googleReady ? '/api/auth/google' : undefined}
-        onClick={
-          googleReady
-            ? undefined
-            : (e) => {
-                e.preventDefault()
-                setGoogleSetupOpen(true)
-                setGoogleTried(true)
-              }
-        }
-        className="flex h-10 w-full items-center justify-center rounded-md border border-input bg-background text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        role="button"
-        aria-label="Continue with Google"
-      >
-        <GoogleMark /> Continue with Google
-      </a>
-      {!googleReady && (
-        <p className="-mt-1 text-center text-[11px] leading-snug text-muted-foreground">
-          Not switched on yet —{' '}
-          <button type="button" className="font-medium text-primary underline-offset-2 hover:underline" onClick={() => setGoogleSetupOpen(true)}>
-            see how to enable it
-          </button>{' '}
-          (one-time server setup).
-        </p>
-      )}
-      <div className="flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">or with email</span>
-        <Separator className="flex-1" />
-      </div>
-    </>
-  )
-
   const titles: Record<AuthMode, [string, string]> = {
-    login: ['Welcome back', 'Sign in to open your vault of capsules.'],
-    register: ['Claim your voice in the future', 'Create an account to seal your first capsule.'],
-    forgot: ['Reset your password', 'Enter your email and we will send a reset link.'],
+    login: ['Welcome back', 'Sign in with your name and password.'],
+    register: ['Claim your voice in the future', 'A name and a password — that is all an account needs.'],
+    forgot: ['Reset your password', 'Enter the recovery email on the account and we will send a reset link.'],
     reset: ['Choose a new password', 'Your reset link is valid — set a new password below.'],
   }
 
@@ -232,15 +187,29 @@ export function AuthDialog() {
             <Button variant="outline" className="w-full" onClick={() => openAuth('forgot')}>Request a new link</Button>
           </div>
         ) : registered ? (
-          /* ── post-registration: email verification step ── */
+          /* ── post-registration: email verification step (only when a recovery email was given) ── */
           registered.sent ? (
             inboxNote(registered.email)
-          ) : (
+          ) : registered.token ? (
             <div className="space-y-4">
-              {fallbackTokenNote(registered.token ?? '', registered.note, () => registered.token && verifyNow(registered.token))}
+              {fallbackTokenNote(registered.token, registered.note, () => registered.token && verifyNow(registered.token))}
               <Button variant="ghost" className="w-full" onClick={closeAuth}>
                 I&apos;ll verify later
               </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-lg border border-emerald-600/30 bg-emerald-500/5 p-3 text-sm">
+                <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+                <div>
+                  <p className="font-medium">You&apos;re in.</p>
+                  <p className="mt-1 text-muted-foreground">
+                    No recovery email was added — that is perfectly fine. Your name and password are all you need,
+                    and they are stored hashed on this server. You can add a recovery email later on your profile page.
+                  </p>
+                </div>
+              </div>
+              <Button className="w-full" onClick={closeAuth}>Start writing</Button>
             </div>
           )
         ) : resetInfo ? (
@@ -260,17 +229,40 @@ export function AuthDialog() {
         ) : (
           /* ── login / register / forgot forms ── */
           <form onSubmit={submit} className="space-y-4">
-            {googleButton}
-            {mode === 'register' && (
+            {mode !== 'forgot' && (
               <div className="space-y-2">
-                <Label htmlFor="displayName">Display name</Label>
-                <Input id="displayName" name="displayName" required minLength={2} maxLength={40} placeholder="e.g. Amara of 2026" autoComplete="name" />
+                <Label htmlFor="name">Your name</Label>
+                <Input
+                  id="name" name="name" required
+                  minLength={2} maxLength={40}
+                  placeholder={mode === 'register' ? 'e.g. Grace Wanjiku' : 'Your name or recovery email'}
+                  autoComplete={mode === 'register' ? 'username' : 'username'}
+                />
+                {mode === 'register' && (
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    This is how you will sign in for the next 100 years — pick a name you will not forget.
+                  </p>
+                )}
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
-            </div>
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <Label htmlFor="email">
+                  Recovery email{' '}
+                  <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input id="email" name="email" type="email" placeholder="you@example.com" autoComplete="email" />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Used only to reset a lost password — never required to sign in.
+                </p>
+              </div>
+            )}
+            {mode === 'forgot' && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Recovery email</Label>
+                <Input id="email" name="email" type="email" required placeholder="you@example.com" autoComplete="email" />
+              </div>
+            )}
             {mode !== 'forgot' && (
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -280,6 +272,19 @@ export function AuthDialog() {
                   placeholder={mode === 'register' ? 'At least 8 characters' : 'Your password'}
                   autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                 />
+              </div>
+            )}
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <Input
+                  id="confirmPassword" name="confirmPassword" type="password" required
+                  minLength={8}
+                  placeholder="Type the same password again"
+                  autoComplete="new-password"
+                  aria-invalid={!!confirmError}
+                />
+                {confirmError && <p className="text-xs text-destructive">{confirmError}</p>}
               </div>
             )}
             <Button type="submit" className="w-full" disabled={busy}>
@@ -313,59 +318,6 @@ export function AuthDialog() {
             </div>
           </form>
         )}
-
-        {/* one-time setup guide shown when Google credentials are missing */}
-        <SetupGuide
-          open={googleSetupOpen}
-          onOpenChange={setGoogleSetupOpen}
-          onClose={() => setGoogleSetupOpen(false)}
-        />
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function SetupGuide({ open, onOpenChange, onClose }: { open: boolean; onOpenChange: (o: boolean) => void; onClose: () => void }) {
-  return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) onClose() }}>
-      <DialogContent className="fv-scroll max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="font-display flex items-center gap-2">
-            <Settings className="h-5 w-5 text-primary" aria-hidden /> Switch on Google sign-in
-          </DialogTitle>
-          <DialogDescription>
-            One-time setup on the server — about five minutes, free. After step 5 the button starts working for everyone.
-          </DialogDescription>
-        </DialogHeader>
-        <ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed">
-          <li>
-            Open <span className="font-medium">console.cloud.google.com</span> → create or select a project.
-          </li>
-          <li>
-            <span className="font-medium">APIs &amp; Services → OAuth consent screen → External</span> — fill in the app name and your email, then save.
-          </li>
-          <li>
-            <span className="font-medium">APIs &amp; Services → Credentials → Create credentials → OAuth client ID → Web application</span>.
-          </li>
-          <li>
-            Under <span className="font-medium">Authorized redirect URIs</span> add exactly:
-            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">http://localhost:3000/api/auth/google/callback</code>
-            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">https://YOUR-DOMAIN/api/auth/google/callback</code>
-          </li>
-          <li>
-            Copy the Client ID and Client secret into your <span className="font-medium">.env</span> file:
-            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">GOOGLE_CLIENT_ID=&quot;…apps.googleusercontent.com&quot;</code>
-            <code className="mt-1 block break-all rounded bg-muted px-2 py-1 font-mono text-[11px]">GOOGLE_CLIENT_SECRET=&quot;GOCSPX-…&quot;</code>
-            then restart the server (<span className="font-medium">npm start</span> or <span className="font-medium">docker compose up -d</span>).
-          </li>
-        </ol>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Until then visitors use the email option — but the Google button above is already visible, so the moment the two
-          values are in your .env, Google sign-in simply starts working. Full guide: README → “Google sign-in setup”.
-        </p>
-        <DialogFooter>
-          <Button onClick={onClose}>Got it</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

@@ -8,9 +8,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "predev": "prisma db push --skip-generate",
+    "predev": "prisma db push --skip-generate --accept-data-loss",
     "dev": "next dev",
-    "prestart": "prisma db push --skip-generate",
+    "prestart": "prisma db push --skip-generate --accept-data-loss",
     "start": "next start",
     "build": "next build",
     "postinstall": "prisma generate",

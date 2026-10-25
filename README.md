@@ -22,12 +22,12 @@ is live on your own URL. No external database, no cloud services required.
 | **Recipients** | Tag: future self, future child, grandchildren, people of 2078, future generations — or a custom name |
 | **Keepers & legacies** | Name up to 10 **keepers** (heirs) per capsule by email, protect it with an optional **family passphrase**, add a private note they'll see on opening. On release day keepers are emailed and can **claim** the capsule from their own **Legacies** tab — it becomes permanently theirs, even if the author is no longer around |
 | **Archive** | Public archive with full-text search, filters by release year / recipient / media type, sorting and pagination |
-| **Accounts** | Register / sign in / sign out, **Google sign-in** (one click with your Google account, activates when credentials are configured), email verification, password reset (real emails via SMTP; graceful in-UI fallback without), profile with display name & bio, password change |
+| **Accounts** | Register / sign in / sign out with **name + password** (no Google, no third party — accounts live in your database and outlive any tech company), optional recovery email, email verification, password reset (real emails via SMTP; graceful in-UI fallback without), profile with display name & bio, password change |
 | **Vault dashboard** | Manage every capsule: edit, re-seal, change privacy, delete, watch countdowns |
 | **Interactions** | Minimal, privacy-first "future reactions" (4 signal types, one per visitor per capsule) |
 | **Safety** | Report flow + admin moderation desk (hide/restore, strike, ban) · public capsules are **screened against community standards** before publishing (adult content, hate, threats, scam patterns) · 3 strikes = **automatic ban** (sessions closed, public capsules hidden) · 3 community reports **auto-quarantine** a capsule for review · full member management (search, ban/unban) · **the first registered account becomes the admin** |
 | **Data ownership** | One-click JSON export of your entire account (GDPR-style portability) |
-| **Security** | scrypt password hashing, DB-backed httpOnly session cookies, access-checked media gateway (private/sealed media is *never* publicly reachable), range-streamed video |
+| **Security** | scrypt password hashing (N=32768, self-describing hash format, transparent upgrade of legacy hashes), session & email tokens stored only as SHA-256 hashes, account lockout after 5 failed sign-ins (15 min → 24 h escalating), per-IP rate limiting on every auth endpoint, DB-backed httpOnly session cookies, access-checked media gateway (private/sealed media is *never* publicly reachable), range-streamed video |
 | **UI** | Responsive from phones to desktops, light/dark theme, keyboard & screen-reader friendly, sticky footer layout |
 
 ---
@@ -151,27 +151,41 @@ capsules.yourdomain.com {
 
 ---
 
-### Google sign-in
+### Sign-in: name + password (deliberately no Google)
 
-The **“Continue with Google”** button is always visible in the sign-in dialog.
-Once you add Google credentials to `.env` it starts working instantly —
-users click their Google account and they are in, no password needed.
-Until then, clicking the button opens a built-in setup guide that walks
-through these steps:
+A time capsule may be opened by your grandchildren in 2126. No login
+dependency on any outside company can be allowed to expire before the
+capsules do — so Future Voices uses a plain, durable sign-in:
 
-1. Go to <https://console.cloud.google.com> → create or select a project.
-2. **APIs & Services → OAuth consent screen → External** — fill the app name and your email, save.
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
-4. Under **Authorized redirect URIs** add exactly:
-   - `http://localhost:3000/api/auth/google/callback`
-   - `https://YOUR-DOMAIN/api/auth/google/callback` (when live)
-5. Copy the Client ID and Client secret into `.env`:
-   ```
-   GOOGLE_CLIENT_ID="1234-abc.apps.googleusercontent.com"
-   GOOGLE_CLIENT_SECRET="GOCSPX-…"
-   ```
-   then restart the server. That's it — accounts created with Google link
-   automatically to any existing account using the same email.
+- **Create an account** with a name and a password (typed twice for
+  confirmation). It is saved straight into **your** database, password
+  hashed with **scrypt (N=32768, per-user random salt)**. Done.
+- A **recovery email is optional**. If given, it is used only to send a
+  reset link when the password is forgotten. If not given, the account
+  still works fully — name + password is all anyone ever needs.
+- Signing in accepts the **name** (or the recovery email, for accounts
+  that predate name sign-in) plus the password.
+- Keepers are the one exception where an email still matters: the author
+  writes down each keeper's email so the capsule can find them. Any
+  provider works — Gmail, Yahoo, Outlook, school mail.
+
+### Brute-force & abuse protection
+
+- **Account lockout**: 5 consecutive failed sign-ins lock the account for
+  15 minutes; every further failure doubles the wait, up to 24 hours.
+  The response is generic — wrong name vs wrong password is never revealed.
+- **Per-IP rate limits** (in-memory, no config): 15 sign-in attempts / 15 min,
+  5 registrations / hour, 10 password-reset requests / hour, 20 reset-token
+  guesses / hour, 30 legacy lookups / hour.
+- **Tokens are never stored raw**: session cookies and email links carry a
+  256-bit random token, while the database stores only its SHA-256 hash.
+  A stolen database backup cannot hijack sessions or redeem reset links.
+- **Transparent hash upgrades**: password hashes are stored in a
+  self-describing format; if an old-format hash verifies at sign-in, it is
+  re-hashed at the strongest current parameters automatically.
+- **Security headers** (nosniff, SAMEORIGIN, strict referrer, locked-down
+  permissions) are sent on every route. Sessions are httpOnly + SameSite=Lax
+  + Secure (Secure activates automatically once `APP_URL` starts with https).
 
 ### Keepers & legacies (inherit a capsule)
 

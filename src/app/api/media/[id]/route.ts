@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const isOwner = !!user && user.id === media.ownerId
     let heirUnlocked = false
-    if (media.post && user) {
+    if (media.post && user?.email) {
       const heir = await db.heir.findFirst({
         where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
         select: { id: true },
@@ -128,7 +128,7 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!media) return new NextResponse(null, { status: 404 })
     const isOwner = !!user && user.id === media.ownerId
     let heirUnlocked = false
-    if (media.post && user) {
+    if (media.post && user?.email) {
       const heir = await db.heir.findFirst({
         where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
         select: { id: true },

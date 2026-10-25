@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { errorResponse } from '@/lib/auth'
+import { hashToken, errorResponse } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'A verification token is required.' }, { status: 400 })
     }
 
-    const record = await db.authToken.findUnique({ where: { token }, include: { user: true } })
+    const record = await db.authToken.findUnique({ where: { token: hashToken(token) }, include: { user: true } })
     if (!record || record.type !== 'EMAIL_VERIFY') {
       return NextResponse.json({ error: 'This verification link is invalid.' }, { status: 400 })
     }

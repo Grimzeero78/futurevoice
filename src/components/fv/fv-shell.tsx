@@ -75,28 +75,6 @@ export function FVShell() {
     } else if (resetToken) {
       startPasswordReset(resetToken)
       window.history.replaceState(null, '', window.location.pathname)
-    } else if (params.get('authError')) {
-      // Google sign-in landed back with an error code
-      const authError = params.get('authError') ?? ''
-      const messages: Record<string, [string, string]> = {
-        google_unconfigured: ['Google sign-in is not active', 'The server owner has not added Google credentials yet — use email sign-in.'],
-        google_cancelled: ['Google sign-in cancelled', 'No worries — you can try again any time.'],
-        google_state: ['Sign-in expired', 'The sign-in attempt took too long. Please try again.'],
-        google_failed: ['Google sign-in failed', 'Something went wrong talking to Google. Please try again.'],
-        banned: ['Account banned', 'This account has been banned for violating the community standards.'],
-      }
-      if (authError === 'google_welcome') {
-        void refreshSession()
-        toast({ title: 'Signed in with Google', description: 'Welcome — the future was waiting.' })
-      } else {
-        const m = messages[authError]
-        toast({
-          title: m?.[0] ?? 'Sign-in issue',
-          description: m?.[1] ?? 'Please try again.',
-          variant: 'destructive',
-        })
-      }
-      window.history.replaceState(null, '', window.location.pathname)
     }
 
     return () => window.removeEventListener('hashchange', onHash)
@@ -157,7 +135,7 @@ export function FVShell() {
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>
                       <p className="font-medium">{session.displayName}</p>
-                      <p className="truncate text-xs font-normal text-muted-foreground">{session.email}</p>
+                      <p className="truncate text-xs font-normal text-muted-foreground">{session.email ?? `@${session.name ?? 'member'}`}</p>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate({ name: 'dashboard' })}>
@@ -208,8 +186,8 @@ export function FVShell() {
             </div>
           </div>
 
-          {/* email verification banner */}
-          {session && !session.emailVerified && (
+          {/* email verification banner — only relevant when a recovery email exists */}
+          {session && session.email && !session.emailVerified && (
             <div className="border-t bg-amber-500/10 px-4 py-2 text-center text-xs text-amber-700 dark:text-amber-400">
               <span className="inline-flex items-center gap-1.5">
                 <MailWarning className="h-3.5 w-3.5" aria-hidden />

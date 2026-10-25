@@ -11,9 +11,9 @@ datasource db {
 
 model User {
   id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String? // null when the account signs in with Google only
-  googleId      String?   @unique // Google account link ("sub" claim)
+  name          String?   @unique // login name (lower-cased, unique). Optional only for accounts created before name sign-in existed
+  email         String?   @unique // OPTIONAL recovery / notification email — the platform never depends on Gmail; accounts work with name + password alone
+  passwordHash  String?   // scrypt hash — always set (there is no third-party sign-in)
   displayName   String
   bio           String?
   role          String    @default("USER") // USER | ADMIN
@@ -22,6 +22,8 @@ model User {
   banReason     String?
   bannedAt      DateTime?
   violations    Int       @default(0) // moderation strikes (auto-ban at threshold)
+  failedLogins  Int       @default(0) // brute-force defence: consecutive failed sign-ins
+  lockedUntil   DateTime? // brute-force defence: account temporarily locked after repeated failures
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -36,7 +38,7 @@ model User {
 
 model Session {
   id        String   @id @default(cuid())
-  token     String   @unique
+  token     String   @unique // stores the SHA-256 hash of the session token — the raw token never touches the database
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
@@ -46,7 +48,7 @@ model Session {
 // One table for both email-verification and password-reset tokens
 model AuthToken {
   id        String    @id @default(cuid())
-  token     String    @unique
+  token     String    @unique // stores the SHA-256 hash of the token — the raw token never touches the database
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String // EMAIL_VERIFY | PASSWORD_RESET
@@ -89,7 +91,7 @@ model Heir {
   id              String    @id @default(cuid())
   postId          String
   post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  email           String // lower-cased; the keeper must sign up with this exact address
+  email           String // lower-cased; the keeper signs up with this exact address to be recognized (the only place an email is still required — and any provider works)
   name            String? // optional label, e.g. "granddaughter Amina"
   claimedAt       DateTime?
   claimedByUserId String?

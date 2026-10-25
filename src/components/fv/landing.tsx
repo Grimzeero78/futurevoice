@@ -26,29 +26,29 @@ const WALKTHROUGH = [
     img: '/demo/steps/step-1-write.jpg',
     title: 'Write it, snap it, seal it in',
     body: 'A letter, photographs, a video or a voice note — attach everything you want the future to hold. No size limits, no file limits.',
-    caption: 'The real compose form: Grace is writing to her grandchildren with a family photo attached.',
-    alt: 'Compose form with a letter to grandchildren and a family photograph attached',
+    caption: 'Every capsule starts the way Rose started in 1944: a pen, a quiet evening, and the people you are writing for.',
+    alt: 'A fountain pen resting on a notebook filled with handwriting',
   },
   {
     img: '/demo/steps/step-2-keepers.jpg',
     title: 'Choose who will see it',
     body: 'Just you? Your children & named keepers? Or everyone? Add the exact emails of the people who should inherit it — any provider works, Gmail or not — plus one family passphrase only you all know.',
-    caption: 'Choosing “My children & keepers”: Wanjiku and Kiama are named, and the family passphrase is set.',
-    alt: 'Audience chooser with My children and keepers selected, showing keeper emails and a family passphrase',
+    caption: 'This is who it is for: a grandmother and her granddaughter, turning the pages together. Name your keepers — the site does the rest.',
+    alt: 'A grandmother and her granddaughter looking through a photo album together',
   },
   {
     img: '/demo/steps/step-3-seal.jpg',
     title: 'Seal it until the day comes',
     body: 'Pick any date: a birthday in 2056, a graduation in 2078 — or the year 3026, a full millennium away. Until then, not even a whisper escapes.',
-    caption: 'The time lock: this capsule stays sealed until Monday, June 12, 2056 — in 29 years.',
-    alt: 'Time lock settings showing a seal date of June 12, 2056',
+    caption: 'Sealed like wax on an envelope: nothing opens before the date you chose — not even for you.',
+    alt: 'White envelopes closed with red wax seals on a wooden desk',
   },
   {
     img: '/demo/steps/step-4-legacy.jpg',
     title: 'On the day, it finds them',
     body: 'When the seal breaks we email every keeper. They sign in, speak the family word — and your voice becomes theirs to keep forever.',
-    caption: 'Sealed and counting: 29 years and 7 months to go. One day Wanjiku and Kiama will open this.',
-    alt: 'Sealed capsule with a countdown of 29 years and 7 months above the family photograph',
+    caption: 'One day, someone opens the album and finds you there. That is the whole point of this place.',
+    alt: 'A woman holding an old photo album filled with vintage family photographs',
   },
 ]
 
@@ -63,31 +63,30 @@ const FEATURES = [
 
 // ─── The sample capsule that visitors can open right on the landing page ──
 
-const DEMO_LETTER = `My grandchildren,
+const DEMO_LETTER = `My dear great-granddaughter,
 
-If you are reading this, fifty years have passed since a man sat behind a fruit stall in Nakuru and wrote to people he had not yet met. I was fifty-one. I sold oranges and sugarcane at the market, and that stall paid the school fees of everyone I loved.
+If someone kept their promise, you are reading this eighty years after a young seamstress sealed this box and walked away from it. It was June 1944. The world was loud with bad news, and I was twenty-two, sewing wedding dresses in a workshop above a bakery. Every morning the smell of warm bread came up through the floorboards, and that is how I knew the world still meant to go on.
 
-I sealed this letter in December 1974. The man at the post office told me to be reasonable. Here we are anyway — my voice crossing half a century to find you.
+The man who delivered the flour carried it up three flights of stairs. He was thin from the rationing and polite in a way that made me laugh. He stayed for tea. You exist because he stayed for tea, so be kind to quiet people.
 
-Three things I need you to know.
+Three things, then I let you go.
 
-One. We were happy with very little. The photographs prove it — look at our faces. Whatever you are chasing out there, do not forget that joy is not bought.
+One. Joy is not bought. Look at the photograph of my sister and me — we owned two good dresses between us, and we laughed until the photographer scolded us for ruining his shot. I have kept that picture longer than I kept the dresses.
 
-Two. You come from farmers and traders and people who get up before the sun. When the world tells you that you cannot, remember whose blood is in you.
+Two. Print your photographs. I mean it. Paper survives. The machines you keep your pictures in will be strange, dead objects one day, but paper in a dry box lasts eighty years and more. Hold every photograph to the window when you miss me.
 
-Three. Before your parents met, before your names existed, I prayed for you by name. You were never a stranger to me. You were a hope I carried to market every morning.
+Three. Before you were a name, before your grandmother's mother learned to walk, I hoped for you. You were never a stranger to me. You were a room in the future I kept furnished in my mind.
 
-Now tell me: is the market still loud on Fridays? Do the rains still come in April?
+Now tell me honestly: is the bakery still there? Does the bread still smell like morning?
 
 With all my love across the years,
-Your grandfather,
-Joseph Kimani
-Nakuru · December 1974`
+Rose
+June 1944`
 
 type DemoPhase = 'closed' | 'sealed' | 'opening' | 'letter'
 
 function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPhase) => void }) {
-  const [year, setYear] = useState(1974)
+  const [year, setYear] = useState(1944)
 
   useEffect(() => {
     if (phase !== 'opening') return
@@ -96,8 +95,8 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
     const iv = setInterval(() => {
       const t = Math.min(1, (Date.now() - started) / total)
       const eased = 1 - Math.pow(1 - t, 3)
-      // 1974 → 2024 with an ease-out roll
-      setYear(1974 + Math.round(eased * (t === 0 ? 0 : 50)))
+      // 1944 → 2024 with an ease-out roll
+      setYear(1944 + Math.round(eased * (t === 0 ? 0 : 80)))
       if (t >= 1) {
         clearInterval(iv)
         setTimeout(() => setPhase('letter'), 350)
@@ -117,7 +116,7 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
           onClick={() => phase !== 'opening' && setPhase('closed')}
           role="dialog"
           aria-modal="true"
-          aria-label="Sample capsule from 1974"
+          aria-label="Sample capsule from 1944"
         >
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.97 }}
@@ -142,17 +141,17 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
                 <Badge className="mb-5 gap-1 bg-accent text-accent-foreground">
                   <Archive className="h-3 w-3" aria-hidden /> Found in the archive · a real story
                 </Badge>
-                <h3 className="font-display text-2xl font-bold sm:text-3xl">“For my grandchildren, on the day the seal breaks”</h3>
+                <h3 className="font-display text-2xl font-bold sm:text-3xl">“For the family I will never meet, on the day the seal breaks”</h3>
                 <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Sealed in December 1974 by Joseph Kimani, a fruit trader from Nakuru — addressed to a grandson
-                  small enough to sit on his knee. It waited fifty years.
+                  Sealed in June 1944 by Rose, a twenty-two-year-old seamstress — addressed to a
+                  great-granddaughter who did not exist yet. It waited eighty years.
                 </p>
                 <div className="mx-auto mt-8 max-w-xs rounded-xl border border-primary/30 bg-card p-5 shadow-lg">
                   <span className="wax-seal mx-auto flex h-16 w-16 items-center justify-center rounded-full">
                     <Lock className="h-7 w-7 text-primary-foreground" aria-hidden />
                   </span>
-                  <p className="mt-4 text-xs font-medium uppercase tracking-widest text-primary">Sealed for 50 years</p>
-                  <p className="mt-1 text-xs text-muted-foreground">1974 ——— 2024</p>
+                  <p className="mt-4 text-xs font-medium uppercase tracking-widest text-primary">Sealed for 80 years</p>
+                  <p className="mt-1 text-xs text-muted-foreground">1944 ——— 2024</p>
                 </div>
                 <Button size="lg" className="mt-8 h-12 px-8 text-base" onClick={() => setPhase('opening')}>
                   <Sparkles className="mr-2 h-4 w-4" aria-hidden /> Break the seal
@@ -179,19 +178,19 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
             {phase === 'letter' && (
               <div className="px-5 py-8 sm:px-10">
                 <div className="paper-grain rounded-xl border bg-card p-6 shadow-sm sm:p-8">
-                  <p className="text-xs font-medium uppercase tracking-widest text-primary">Sealed 1974 · Opened 2024 · 50 years in waiting</p>
-                  <h3 className="mt-2 font-display text-2xl font-bold">For my grandchildren, on the day the seal breaks</h3>
+                  <p className="text-xs font-medium uppercase tracking-widest text-primary">Sealed 1944 · Opened 2024 · 80 years in waiting</p>
+                  <h3 className="mt-2 font-display text-2xl font-bold">For the family I will never meet, on the day the seal breaks</h3>
                   <p className="mt-5 whitespace-pre-wrap font-display text-[15px] leading-relaxed">{DEMO_LETTER}</p>
                 </div>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <figure className="overflow-hidden rounded-xl border shadow-sm">
-                    <img src="/demo/kamau-family.jpg" alt="A grandfather in a checked shirt holding his young grandson on his knee, photographed on film" className="aspect-[4/3] w-full object-cover" loading="lazy" />
-                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">The grandson this letter is for, on my knee, 1974.</figcaption>
+                    <img src="/demo/rose-letters.jpg" alt="Vintage handwritten letters and postcards with old postmarks, kept together in a bundle" className="aspect-[4/3] w-full object-cover" loading="lazy" />
+                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">Some of the letters I could never throw away.</figcaption>
                   </figure>
                   <figure className="overflow-hidden rounded-xl border shadow-sm">
-                    <img src="/demo/kamau-market.jpg" alt="A busy open-air market stall stacked with watermelons, bananas and tomatoes under corrugated roofs" className="aspect-[4/3] w-full object-cover" loading="lazy" />
-                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">My stall at the market — every shilling of school fees stood right here.</figcaption>
+                    <img src="/demo/rose-hands.jpg" alt="A younger hand and an older hand passing a bundle of vintage photographs over a tin box" className="aspect-[4/3] w-full object-cover" loading="lazy" />
+                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">The photographs are the inheritance — hand them on.</figcaption>
                   </figure>
                 </div>
 
@@ -199,11 +198,11 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
                   <Gift className="mx-auto mb-3 h-7 w-7 text-primary" aria-hidden />
                   <h4 className="font-display text-xl font-bold">Now imagine whose name is on yours.</h4>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-                    This capsule took Kimani about ten minutes to write — and it defined a day, fifty years later.
+                    This capsule took Rose about ten minutes to write — and it defined a day, eighty years later.
                     Seal yours for 2056, for 3026, or for a grandchild you haven&apos;t met yet.
                   </p>
                   <DemoCTA className="mt-5" label="Seal your own capsule" />
-                  <p className="mt-3 text-[11px] text-muted-foreground">A sample capsule shown on this page — yours can wait 50 years, or 1,000.</p>
+                  <p className="mt-3 text-[11px] text-muted-foreground">A sample capsule shown on this page — yours can wait 80 years, or 1,000.</p>
                 </div>
               </div>
             )}
@@ -440,14 +439,14 @@ export function Landing() {
             <div className="overflow-hidden rounded-2xl border shadow-xl">
               { }
               <img
-                src="/demo/keepers-hands.jpg"
-                alt="The weathered hands of an elder resting on a wooden walking stick, photographed in black and white"
+                src="/demo/rose-sisters.jpg"
+                alt="Two young women laughing together in a 1940s black-and-white photograph, real film grain"
                 className="aspect-[4/3] w-full object-cover"
                 loading="lazy"
               />
             </div>
             <div className="ember-float absolute -bottom-5 left-4 rotate-[-3deg] rounded-lg border bg-card px-4 py-2.5 shadow-lg">
-              <p className="text-xs font-medium">“What will they hear from us?”</p>
+              <p className="text-xs font-medium">“Rose and her sister · 1944”</p>
             </div>
           </motion.div>
 
@@ -457,13 +456,14 @@ export function Landing() {
             </span>
             <h2 className="font-display text-3xl font-bold sm:text-4xl">Open a capsule from the past.</h2>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              In 1974, Joseph Kimani sealed a letter for the grandson asleep on his knee.
-              It waited fifty years. This is what the day it opened felt like —
+              In June 1944, Rose — a twenty-two-year-old seamstress — sealed a letter for a
+              great-granddaughter who did not exist yet. It waited eighty years. This is what
+              the day it opened felt like —
               <span className="font-medium text-foreground"> experience it for yourself.</span>
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button size="lg" onClick={() => setDemoPhase('sealed')} className="h-12 px-7 text-base">
-                <Lock className="mr-2 h-4 w-4" aria-hidden /> Open Kimani&apos;s capsule
+                <Lock className="mr-2 h-4 w-4" aria-hidden /> Open Rose&apos;s capsule
               </Button>
               <span className="text-sm text-muted-foreground">Takes 60 seconds. Tissues optional.</span>
             </div>

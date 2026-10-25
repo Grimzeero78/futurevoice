@@ -39,8 +39,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const sealed = post.releaseAt && post.releaseAt > new Date()
 
     // keeper/heir relationship for the signed-in visitor
-    const myHeirRow = user
-      ? await db.heir.findFirst({ where: { postId: id, email: user.email } })
+    const myHeirRow = user?.email
+      ? await db.heir.findFirst({ where: { postId: id, email: user.email! } })
       : null
     const heirUnlocked = !!myHeirRow?.claimedAt && !sealed && !post.hidden
 

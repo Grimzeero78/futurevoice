@@ -15,31 +15,33 @@ export async function GET(req: NextRequest) {
   try {
     const user = await requireUser(req)
 
-    const rows = await db.heir.findMany({
-      where: { email: user.email, post: { hidden: false } },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        claimedAt: true,
-        createdAt: true,
-        post: {
+    const rows = user.email
+      ? await db.heir.findMany({
+          where: { email: user.email, post: { hidden: false } },
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
-            title: true,
-            releaseAt: true,
-            status: true,
-            recipientTag: true,
-            customRecipient: true,
-            heirPassHash: true,
+            email: true,
+            name: true,
+            claimedAt: true,
             createdAt: true,
-            author: { select: { displayName: true } },
-            _count: { select: { media: true } },
+            post: {
+              select: {
+                id: true,
+                title: true,
+                releaseAt: true,
+                status: true,
+                recipientTag: true,
+                customRecipient: true,
+                heirPassHash: true,
+                createdAt: true,
+                author: { select: { displayName: true } },
+                _count: { select: { media: true } },
+              },
+            },
           },
-        },
-      },
-    })
+        })
+      : []
 
     const legacies = rows.map((h) => {
       const sealed = isSealed(h.post)

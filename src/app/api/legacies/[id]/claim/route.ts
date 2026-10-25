@@ -21,6 +21,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const { id } = await ctx.params
     const user = await requireUser(req)
 
+    if (!user.email) {
+      return NextResponse.json(
+        { error: 'This account has no recovery email, so it cannot be matched to a legacy. Sign up with the exact email the author wrote down.' },
+        { status: 400 },
+      )
+    }
+
     const heirRow = await db.heir.findFirst({
       where: { postId: id, email: user.email },
       include: {
