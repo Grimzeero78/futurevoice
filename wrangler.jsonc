@@ -41,10 +41,8 @@
     }
   ],
   "vars": {
-    // Public URL of the deployment. Leave the placeholder for the first
-    // deploy — then replace <your-subdomain> with the subdomain shown at
-    // the end of the deploy (email links + cookie security use it).
-    "APP_URL": "https://futurevoice.<your-subdomain>.workers.dev"
+    // Public URL of the deployment (cookie security + share links use it).
+    "APP_URL": "https://futurevoice.dev078.workers.dev"
     // Optional knobs (defaults shown):
     // "MODERATION_BAN_THRESHOLD": "3",
     // "MODERATION_AUTO_HIDE_REPORTS": "3",

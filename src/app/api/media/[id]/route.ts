@@ -44,16 +44,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (!media) return NextResponse.json({ error: 'Media not found.' }, { status: 404 })
 
     const isOwner = !!user && user.id === media.ownerId
-    let heirUnlocked = false
-    if (media.post && user?.email) {
-      const heir = await db.heir.findFirst({
-        where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
-        select: { id: true },
-      })
-      // release DATE is the source of truth for keepers (never early, no sweep-lag)
-      const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
-      heirUnlocked = !!heir && released && !media.post.hidden
-    }
     // magic-key reader: signed grant + the capsule has actually opened
     let magicUnlocked = false
     if (media.post?.magicKeyHash && media.postId && !media.post.hidden) {
@@ -65,7 +55,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       const postAuthor = media.post.authorId === user?.id
       const publiclyVisible =
         media.post.privacy === 'PUBLIC' && !media.post.hidden && !isSealed(media.post)
-      if (!postAuthor && !publiclyVisible && !heirUnlocked && !magicUnlocked) {
+      if (!postAuthor && !publiclyVisible && !magicUnlocked) {
         const sealedOnly = media.post.privacy === 'PUBLIC' && !media.post.hidden && isSealed(media.post)
         return accessDenied(sealedOnly)
       }
@@ -137,15 +127,6 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
     })
     if (!media) return new NextResponse(null, { status: 404 })
     const isOwner = !!user && user.id === media.ownerId
-    let heirUnlocked = false
-    if (media.post && user?.email) {
-      const heir = await db.heir.findFirst({
-        where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
-        select: { id: true },
-      })
-      const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
-      heirUnlocked = !!heir && released && !media.post.hidden
-    }
     let magicUnlocked = false
     if (media.post?.magicKeyHash && media.postId && !media.post.hidden) {
       const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
@@ -157,7 +138,7 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
       media.post.privacy === 'PUBLIC' &&
       !media.post.hidden &&
       !isSealed(media.post)
-    if (!isOwner && !publiclyVisible && !heirUnlocked && !magicUnlocked) return new NextResponse(null, { status: 403 })
+    if (!isOwner && !publiclyVisible && !magicUnlocked) return new NextResponse(null, { status: 403 })
 
     const size = await fileSize(media.storagePath)
     return new NextResponse(null, {

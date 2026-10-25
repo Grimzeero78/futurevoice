@@ -13,12 +13,10 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   name          String?   @unique // login name (lower-cased, unique). Optional only for accounts created before name sign-in existed
-  email         String?   @unique // OPTIONAL recovery / notification email — the platform never depends on Gmail; accounts work with name + password alone
   passwordHash  String?   // scrypt hash — always set (there is no third-party sign-in)
   displayName   String
   bio           String?
   role          String    @default("USER") // USER | ADMIN
-  emailVerified DateTime?
   banned        Boolean   @default(false) // moderation: account blocked
   banReason     String?
   bannedAt      DateTime?
@@ -34,7 +32,6 @@ model User {
   media      Media[]
   reactions  Reaction[]
   reports    Report[]
-  heirClaims Heir[] // legacies this account has claimed as a keeper/heir
   diary      DiaryEntry[]
 }
 
@@ -47,13 +44,13 @@ model Session {
   createdAt DateTime @default(now())
 }
 
-// One table for both email-verification and password-reset tokens
+// Sign-in and password tokens (e.g. a rare admin-issued reset) live here.
 model AuthToken {
   id        String    @id @default(cuid())
   token     String    @unique // stores the SHA-256 hash of the token — the raw token never touches the database
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // EMAIL_VERIFY | PASSWORD_RESET
+  type      String // e.g. PASSWORD_RESET
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -75,9 +72,8 @@ model Post {
   appearInArchive Boolean   @default(true)
   hidden          Boolean   @default(false) // set by moderation
   hiddenReason    String?
-  heirNote        String? // a private note from the author, shown to keepers when they open the legacy
-  heirPassHash    String? // scrypt hash of the optional family passphrase keepers must enter once
-  magicKeyHash    String? // scrypt hash of the Magic Key — a word/number/phrase the author leaves for their people instead of (or beside) emails
+  heirNote        String? // a note that travels with the capsule — shown to whoever opens it with the Magic Key
+  magicKeyHash    String? // scrypt hash of the Magic Key — the word/number/phrase the author leaves for their people
   magicKeyLookup  String? // HMAC-SHA256(normalized key, server secret) — lets the site FIND the capsule from the key without ever storing the key itself
   magicKeyHint    String? // optional hint shown to a key-holder while the capsule is still sealed (never shown for a wrong key)
   magicKeyOpenedAt DateTime? // the first time someone unlocked this capsule with the Magic Key
@@ -88,27 +84,8 @@ model Post {
   media     Media[]
   reactions Reaction[]
   reports   Report[]
-  heirs     Heir[]
 
   @@index([magicKeyLookup])
-}
-
-// A person named by the author who may claim a capsule once its
-// release date arrives — the "grandchildren" in "seal it for 30 years".
-model Heir {
-  id              String    @id @default(cuid())
-  postId          String
-  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  email           String // lower-cased; the keeper signs up with this exact address to be recognized (the only place an email is still required — and any provider works)
-  name            String? // optional label, e.g. "granddaughter Amina"
-  claimedAt       DateTime?
-  claimedByUserId String?
-  claimedBy       User?     @relation(fields: [claimedByUserId], references: [id])
-  notifiedAt      DateTime? // unlock-notification email attempted
-  createdAt       DateTime  @default(now())
-
-  @@unique([postId, email])
-  @@index([email])
 }
 
 // A page of the author's everyday diary — the small, ordinary days,

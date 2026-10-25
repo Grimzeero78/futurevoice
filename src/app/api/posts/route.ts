@@ -7,7 +7,6 @@ import {
   serializePost,
   parseRecipientTag,
   parseReleaseDate,
-  parseHeirs,
   parseMagicKey,
   assertMediaOwnership,
 } from '@/lib/fv-core'
@@ -112,9 +111,7 @@ export async function POST(req: NextRequest) {
     const appearInArchive = body.appearInArchive !== false
     const releaseAt = parseReleaseDate(body.releaseAt)
     const mediaIds: string[] = Array.isArray(body.mediaIds) ? body.mediaIds.map(String) : []
-    const heirs = parseHeirs(body.heirs)
     const heirNote = String(body.heirNote ?? '').trim() || null
-    const heirPassphrase = String(body.heirPassphrase ?? '').trim()
     const magicKey = String(body.magicKey ?? '').trim()
     const magicKeyHint = String(body.magicKeyHint ?? '').trim() || null
 
@@ -131,16 +128,13 @@ export async function POST(req: NextRequest) {
       throw new HttpError(400, 'Please name the custom recipient for this capsule.')
     }
     if (heirNote && heirNote.length > 2000) {
-      throw new HttpError(400, 'The note to your keepers is limited to 2,000 characters.')
-    }
-    if (heirPassphrase.length > 200) {
-      throw new HttpError(400, 'The family passphrase is limited to 200 characters.')
+      throw new HttpError(400, 'The note that travels with the capsule is limited to 2,000 characters.')
     }
     if (magicKeyHint && magicKeyHint.length > 200) {
       throw new HttpError(400, 'The hint for your magic key is limited to 200 characters.')
     }
-    // The Magic Key: a secret word/number/phrase instead of (or beside) keeper emails.
-    // Only its HMAC lookup + scrypt hash are ever stored.
+    // The Magic Key: a secret word/number/phrase — the only way to hand a
+    // private capsule to someone. Only its HMAC lookup + scrypt hash are ever stored.
     const parsedMagicKey = magicKey ? parseMagicKey(magicKey) : null
     await assertMediaOwnership(mediaIds, user.id)
 
@@ -172,7 +166,6 @@ export async function POST(req: NextRequest) {
         customRecipient,
         appearInArchive: privacy === 'PUBLIC' ? appearInArchive : true,
         heirNote,
-        heirPassHash: heirPassphrase ? hashPassword(heirPassphrase) : null,
         ...(parsedMagicKey
           ? {
               magicKeyHash: hashPassword(parsedMagicKey.normalized),
@@ -181,7 +174,6 @@ export async function POST(req: NextRequest) {
             }
           : {}),
         media: { connect: mediaIds.map((id) => ({ id })) },
-        heirs: { create: heirs.map((h) => ({ email: h.email, name: h.name })) },
       },
       include: {
         author: { select: { id: true, displayName: true } },

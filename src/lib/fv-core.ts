@@ -103,11 +103,8 @@ export function serializePost(post: PrismaPost, opts: { sealedOverride?: boolean
     })),
     reactionCounts,
     reactionTotal: post._count?.reactions ?? post.reactions?.length ?? 0,
-    // ── legacy/keeper fields (filled in per-viewer by the API) ──
+    // ── the note that travels with the capsule (shown to magic-key readers) ──
     heirNote: null as string | null,
-    heirs: [] as { id: string; email: string; name: string | null; claimedAt: Date | null; notifiedAt: Date | null }[],
-    hasHeirPassphrase: false as boolean,
-    viewerIsKeeper: false as boolean,
     // ── magic-key fields (hint/openedAt only ever filled for the author) ──
     hasMagicKey: !!post.magicKeyHash,
     magicKeyHint: null as string | null,
@@ -118,39 +115,6 @@ export function serializePost(post: PrismaPost, opts: { sealedOverride?: boolean
 export type SerializedPost = ReturnType<typeof serializePost>
 
 // ─── Validation helpers ──────────────────────────────────────────
-
-export const MAX_HEIRS = 10
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-export function normalizeEmail(value: unknown): string {
-  return String(value ?? '').trim().toLowerCase()
-}
-
-export type HeirInput = { email: string; name: string | null }
-
-/**
- * Validate the keepers/heirs list sent from the compose form.
- * Accepts an array of strings or { email, name } objects, de-duplicates,
- * and caps the list at MAX_HEIRS.
- */
-export function parseHeirs(value: unknown): HeirInput[] {
-  if (value === undefined || value === null) return []
-  if (!Array.isArray(value)) throw new HttpError(400, 'The keepers list must be an array.')
-  const out: HeirInput[] = []
-  const seen = new Set<string>()
-  for (const raw of value.slice(0, MAX_HEIRS)) {
-    const email = normalizeEmail(typeof raw === 'string' ? raw : (raw as { email?: unknown })?.email)
-    if (!email) continue
-    if (!EMAIL_RE.test(email)) {
-      throw new HttpError(400, `“${email}” is not a valid email address for a keeper.`)
-    }
-    if (seen.has(email)) continue
-    seen.add(email)
-    const rawName = typeof raw === 'object' && raw ? String((raw as { name?: unknown }).name ?? '').trim() : ''
-    out.push({ email, name: rawName ? rawName.slice(0, 60) : null })
-  }
-  return out
-}
 
 export function parseRecipientTag(value: unknown): RecipientTag {
   if (typeof value === 'string' && value in RECIPIENT_TAGS) return value as RecipientTag

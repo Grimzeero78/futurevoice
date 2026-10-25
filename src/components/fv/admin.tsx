@@ -19,19 +19,18 @@ type Report = {
   status: string
   createdAt: string
   post: { id: string; title: string; hidden: boolean; hiddenReason: string | null; privacy: string; status: string; content: string | null; author: { displayName: string } }
-  reporter: { displayName: string; email: string } | null
+  reporter: { displayName: string } | null
 }
 
 type Member = {
   id: string
-  email: string
+  name: string | null
   displayName: string
   role: string
   banned: boolean
   banReason: string | null
   bannedAt: string | null
   violations: number
-  emailVerified: string | null
   createdAt: string
   _count: { posts: number; reports: number }
 }
@@ -242,7 +241,7 @@ export function Admin() {
                   setMemberQuery(e.target.value)
                   void loadMembers(e.target.value)
                 }}
-                placeholder="Search by name or email…"
+                placeholder="Search by name…"
                 className="pl-9"
                 aria-label="Search members"
               />
@@ -257,7 +256,7 @@ export function Admin() {
             <div className="rounded-xl border border-dashed p-14 text-center">
               <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" aria-hidden />
               <p className="font-display text-lg font-semibold">No members matched</p>
-              <p className="mt-1 text-sm text-muted-foreground">Try a different name or email.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Try a different name.</p>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -275,7 +274,7 @@ export function Admin() {
                         {m.violations > 0 && !m.banned && <Badge className="bg-amber-600 text-white">{m.violations} strike{m.violations === 1 ? '' : 's'}</Badge>}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {m.email ? `${m.email} · ` : ''}joined {formatDate(m.createdAt)} · {m._count.posts} capsule{m._count.posts === 1 ? '' : 's'}
+                        joined {formatDate(m.createdAt)} · {m._count.posts} capsule{m._count.posts === 1 ? '' : 's'}
                         {m.banned && m.banReason ? ` · ${m.banReason}` : ''}
                       </p>
                     </div>

@@ -7,11 +7,9 @@ import { create } from 'zustand'
 export type SessionUser = {
   id: string
   name: string | null
-  email: string | null // optional recovery email — accounts work on name + password alone
   displayName: string
   bio: string | null
   role: string
-  emailVerified: string | Date | null
   createdAt?: string | Date
   stats?: { postCount: number; sealedCount: number; reactionsReceived: number }
 }

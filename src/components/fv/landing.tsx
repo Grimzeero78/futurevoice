@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Hourglass, Lock, Video, Mail, ImageIcon, Archive, EyeOff, Tag,
-  Download, ShieldCheck, ArrowRight, Sparkles, Heart, Gift, Users,
-  MailCheck, KeyRound, X, Search, MailQuestion, CheckCircle2, PenLine,
+  Hourglass, Lock, Video, ImageIcon, Archive, EyeOff, Tag,
+  Download, ShieldCheck, ArrowRight, Sparkles, Heart, Gift,
+  KeyRound, X, CheckCircle2, PenLine,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,8 +32,8 @@ const WALKTHROUGH = [
   {
     img: '/demo/steps/step-2-keepers.jpg',
     title: 'Choose who will see it',
-    body: 'Just you? Your children & named keepers? Or everyone? Name keepers by email — any provider works, Gmail or not — or skip emails entirely and leave a single magic key: one secret word, written on paper and handed over.',
-    caption: 'This is who it is for: a grandmother and her granddaughter, turning the pages together. Name your keepers — the site does the rest.',
+    body: 'Just you? Whoever holds your magic key? Or everyone? Leave a single magic key: one secret word, written on paper and handed over — no emails, no accounts, nothing to hack.',
+    caption: 'This is who it is for: a grandmother and her granddaughter, turning the pages together. The key is the handover.',
     alt: 'A grandmother and her granddaughter looking through a photo album together',
   },
   {
@@ -225,12 +225,7 @@ function DemoCTA({ label, className }: { label: string; className?: string }) {
   )
 }
 
-// ─── “Has something been left for me?” — email lookup + magic key door ────
-
-type LookupResult = {
-  found: boolean
-  capsules: { authorName: string; releaseAt: string | null; sealed: boolean; claimed: boolean }[]
-}
+// ─── “Has something been left for me?” — the magic key door ────
 
 type MagicSealed = {
   sealed: true
@@ -332,33 +327,10 @@ function MagicOpenView({ r }: { r: MagicOpen }) {
 }
 
 function LegacyLookup() {
-  const openAuth = useFV((s) => s.openAuth)
-  const [mode, setMode] = useState<'email' | 'key'>('email')
-  // email lookup
-  const [email, setEmail] = useState('')
-  const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<LookupResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  // magic key
   const [keyInput, setKeyInput] = useState('')
   const [keyChecking, setKeyChecking] = useState(false)
   const [keyResults, setKeyResults] = useState<MagicResult[] | null>(null)
   const [keyError, setKeyError] = useState<string | null>(null)
-
-  async function checkEmail(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setResult(null)
-    setChecking(true)
-    try {
-      const r = await api<LookupResult>('/api/legacy/lookup', { method: 'POST', json: { email } })
-      setResult(r)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong — try again.')
-    } finally {
-      setChecking(false)
-    }
-  }
 
   async function checkKey(e: React.FormEvent) {
     e.preventDefault()
@@ -384,103 +356,17 @@ function LegacyLookup() {
     <motion.div {...fadeUp} className="mx-auto mt-12 max-w-2xl rounded-2xl border border-primary/25 bg-card p-6 shadow-lg sm:p-8">
       <div className="flex items-start gap-4">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
-          <MailQuestion className="h-5 w-5 text-primary" aria-hidden />
+          <KeyRound className="h-5 w-5 text-primary" aria-hidden />
         </span>
         <div className="flex-1">
           <h3 className="font-display text-xl font-bold">Has something been left for you?</h3>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            Someone may have sealed a capsule with your name on it — check by the email they wrote down, or speak the magic key they handed you.
+            Someone may have sealed a capsule with your name on it — speak the magic key they handed you, and it opens right here. No account, no email, nothing else.
           </p>
         </div>
       </div>
 
-      {/* two doors */}
-      <div className="mt-5 grid grid-cols-2 gap-2" role="tablist" aria-label="How are you checking?">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'email'}
-          onClick={() => setMode('email')}
-          className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${mode === 'email' ? 'border-primary bg-primary/5 text-primary' : 'bg-card text-muted-foreground hover:bg-secondary/50'}`}
-        >
-          <MailQuestion className="h-4 w-4" aria-hidden /> By email
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'key'}
-          onClick={() => setMode('key')}
-          className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${mode === 'key' ? 'border-primary bg-primary/5 text-primary' : 'bg-card text-muted-foreground hover:bg-secondary/50'}`}
-        >
-          <KeyRound className="h-4 w-4" aria-hidden /> I have a magic key
-        </button>
-      </div>
-
-      {mode === 'email' ? (
-        <>
-          <form onSubmit={checkEmail} className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <label htmlFor="legacy-lookup-email" className="sr-only">Your email address</label>
-            <input
-              id="legacy-lookup-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="h-11 flex-1 rounded-md border bg-background px-3 text-sm outline-none ring-primary focus:ring-2"
-            />
-            <Button type="submit" disabled={checking} className="h-11">
-              {checking ? <Hourglass className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Search className="mr-2 h-4 w-4" aria-hidden />}
-              {checking ? 'Looking…' : 'Check for my legacy'}
-            </Button>
-          </form>
-          <p className="mt-2 text-xs text-muted-foreground">Any provider works — Gmail, Yahoo, Outlook or school mail.</p>
-
-          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-
-          {result && !result.found && (
-            <div className="mt-5 rounded-xl border border-dashed p-5 text-center">
-              <p className="text-sm font-medium">Nothing is waiting at that address yet.</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                It may come one day. Or nudge your family — someone out there should be sealing you a capsule.
-              </p>
-            </div>
-          )}
-
-          {result && result.found && (
-            <div className="mt-5 space-y-3">
-              {result.capsules.map((c, i) => (
-                <div key={i} className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-                  <p className="flex items-start gap-2 text-sm font-medium">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                    <span>
-                      {c.claimed
-                        ? <>A capsule from <span className="text-primary">{c.authorName}</span> is yours — you claimed it. It lives in your vault forever.</>
-                        : c.sealed
-                          ? <>A sealed capsule from <span className="text-primary">{c.authorName}</span> is waiting for you{c.releaseAt ? <> — it opens <span className="text-primary">{new Date(c.releaseAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span></> : null}.</>
-                          : <>A capsule from <span className="text-primary">{c.authorName}</span> has opened — claim it and it is yours to keep.</>
-                      }
-                    </span>
-                  </p>
-                </div>
-              ))}
-              <div className="rounded-xl bg-secondary/60 p-4 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">How to claim it</p>
-                <p className="mt-1 leading-relaxed">
-                  1 · Sign in (or create your account) using <span className="font-medium text-foreground">exactly this email</span> — {email}
-                  <br />2 · Open “My vault” → the Legacies tab — the capsule is listed there, even while sealed
-                  <br />3 · On the day it opens, speak the family word — and it is yours to keep forever
-                </p>
-                <Button size="sm" className="mt-3" onClick={() => openAuth('login')}>
-                  Sign in to see it <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <form onSubmit={checkKey} className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <form onSubmit={checkKey} className="mt-4 flex flex-col gap-2 sm:flex-row">
             <label htmlFor={keyInputId} className="sr-only">Your magic key</label>
             <input
               id={keyInputId}
@@ -537,8 +423,6 @@ function LegacyLookup() {
               </div>
             ),
           )}
-        </>
-      )}
     </motion.div>
   )
 }
@@ -637,7 +521,7 @@ export function Landing() {
               <p className="mt-1 text-[10px] font-medium uppercase tracking-wider">Photo · 2 files</p>
             </div>
             <div className="ember-float absolute -bottom-8 left-1/4 rotate-[-4deg] rounded-xl border bg-card p-3 shadow-lg" style={{ animationDelay: '2.1s' }}>
-              <Mail className="h-6 w-6 text-primary" />
+              <PenLine className="h-6 w-6 text-primary" />
               <p className="mt-1 text-[10px] font-medium uppercase tracking-wider">Letter · 480 words</p>
             </div>
           </motion.div>
@@ -756,11 +640,10 @@ export function Landing() {
             <h2 className="font-display text-3xl font-bold sm:text-4xl">Sealed for children you may never meet</h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
               Lock a capsule for 30 years and one honest question appears: who hands it over?
-              With Future Voices, your grandchildren don&apos;t need you there — they need the
-              email you wrote (any provider — Gmail, Yahoo, Outlook or school mail), and one
-              word your family knows. Or skip emails entirely: leave a single{' '}
-              <span className="font-medium text-foreground">magic key</span> — a secret word on paper —
-              and one day they type it here and your message opens. No Gmail, no account, nothing lost:
+              With Future Voices, your grandchildren don&apos;t need you there — they need one
+              word your family knows: a single{' '}
+              <span className="font-medium text-foreground">magic key</span> — a secret word on paper.
+              One day they type it here and your message opens. No inbox, no account, nothing to hack:
               they can check for their legacy on this very page, any year, any decade.
             </p>
           </motion.div>
@@ -768,19 +651,19 @@ export function Landing() {
           <div className="grid gap-6 md:grid-cols-3">
             {[
               {
-                icon: Users,
-                title: '1 · Name your keepers',
-                body: 'While sealing the capsule, add the emails of your children, grandchildren or a trusted friend — up to ten people, each with a name you choose.',
-              },
-              {
-                icon: MailCheck,
-                title: '2 · The day it opens, they are invited',
-                body: 'From the day you seal it, keepers see it waiting in the Legacies tab of their own vault — and if they ever forget, one visit to this homepage answers “has something been left for me?”. When the date arrives we email them automatically — any email provider works.',
-              },
-              {
                 icon: KeyRound,
-                title: '3 · One family word, and it is theirs',
-                body: 'Optionally protect it with a passphrase only your family knows. Each keeper signs in with that exact email, speaks the word — and the capsule is theirs to keep forever.',
+                title: '1 · Choose a magic key',
+                body: 'While sealing the capsule, pick a secret word, number or phrase only your people would ever guess. The site stores it as an unreadable fingerprint — even we can never see it.',
+              },
+              {
+                icon: PenLine,
+                title: '2 · Write it on paper and hand it over',
+                body: 'An envelope, a will, the family book — a physical key that never expires, never lands in a spam folder, and cannot be intercepted online.',
+              },
+              {
+                icon: Sparkles,
+                title: '3 · One day, they speak the word',
+                body: 'They open this page, type the word, and if the time has come your message opens right here — no account, no email. Yours to keep forever.',
               },
             ].map((s, i) => (
               <motion.div key={s.title} {...fadeUp} transition={{ duration: 0.5, delay: i * 0.1 }}

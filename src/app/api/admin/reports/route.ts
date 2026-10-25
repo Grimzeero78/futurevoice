@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
             author: { select: { displayName: true } },
           },
         },
-        reporter: { select: { displayName: true, email: true } },
+        reporter: { select: { displayName: true } },
       },
     })
 

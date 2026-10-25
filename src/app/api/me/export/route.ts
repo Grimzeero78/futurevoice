@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const [profile, posts, media, reactions] = await Promise.all([
       db.user.findUnique({
         where: { id: user.id },
-        select: { id: true, email: true, displayName: true, bio: true, role: true, createdAt: true, emailVerified: true },
+        select: { id: true, name: true, displayName: true, bio: true, role: true, createdAt: true },
       }),
       db.post.findMany({
         where: { authorId: user.id },

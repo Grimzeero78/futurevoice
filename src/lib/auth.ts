@@ -104,11 +104,9 @@ export async function destroySession(token: string) {
 export type SessionUser = {
   id: string
   name: string | null
-  email: string | null
   displayName: string
   bio: string | null
   role: string
-  emailVerified: Date | null
   createdAt: Date
 }
 
@@ -138,11 +136,9 @@ export async function getCurrentUser(req: NextRequest): Promise<SessionUser | nu
   return {
     id: u.id,
     name: u.name,
-    email: u.email,
     displayName: u.displayName,
     bio: u.bio,
     role: u.role,
-    emailVerified: u.emailVerified,
     createdAt: u.createdAt,
   }
 }

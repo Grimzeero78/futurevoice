@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Eye, Flag, Pencil, Trash2, Globe, EyeOff, Lock, Unlock, Hourglass, CalendarDays, Loader2,
-  AlertTriangle, MailOpen, Gift, KeyRound, Send, Copy,
+  AlertTriangle, MailOpen, KeyRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,26 +23,12 @@ type DetailData = {
   post: SerializedPost
   isAuthor: boolean
   isAdmin: boolean
-  isKeeper?: boolean
   myReaction: string | null
 }
 
 type Teaser = {
   sealedOnly: true
   teaser?: { id: string; releaseAt: string | null; recipientTag: string; customRecipient: string | null; mediaCount: number }
-  legacyTeaser?: {
-    id: string
-    title: string
-    authorName: string
-    releaseAt: string | null
-    recipientTag: string
-    customRecipient: string | null
-    mediaCount: number
-    sealed: boolean
-    needsPassphrase: boolean
-    claimed: boolean
-    keeperName: string | null
-  }
 }
 
 export function PostDetail({ id }: { id: string }) {
@@ -125,52 +111,6 @@ export function PostDetail({ id }: { id: string }) {
     )
   }
 
-  /* ─── Legacy teaser: this capsule is kept for the signed-in account ─── */
-  if (teaser?.legacyTeaser) {
-    const lt = teaser.legacyTeaser
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
-        <div className="sealed-stripes rounded-2xl border-2 border-primary/40 bg-card p-10 text-center shadow-lg">
-          <span className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center">
-            <span className="absolute h-20 w-20 rounded-full bg-primary/25 ring-pulse" aria-hidden />
-            <span className="wax-seal flex h-16 w-16 items-center justify-center rounded-full">
-              <Gift className="h-8 w-8 text-primary-foreground" aria-hidden />
-            </span>
-          </span>
-          <p className="text-sm font-medium uppercase tracking-widest text-primary">A capsule is kept for you</p>
-          <h1 className="mt-2 font-display text-2xl font-bold">“{lt.title}”</h1>
-          <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            Sealed by <span className="font-medium text-foreground">{lt.authorName}</span>
-            {lt.keeperName ? <> for <span className="font-medium text-foreground">{lt.keeperName}</span></> : null}
-            . {lt.sealed
-              ? 'It is still waiting for its moment — the countdown below is already running.'
-              : lt.claimed
-                ? 'It has been sealed again by its author. Come back when the seal breaks.'
-                : 'Its time has come — open it from the Legacies tab of your vault.'}
-          </p>
-          {lt.sealed && lt.releaseAt && (
-            <div className="mt-8">
-              <Countdown target={lt.releaseAt} />
-            </div>
-          )}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            <Badge variant="secondary">{recipientLabel(lt.recipientTag, lt.customRecipient)}</Badge>
-            {lt.needsPassphrase && !lt.claimed && (
-              <Badge variant="outline" className="gap-1">
-                <KeyRound className="h-3 w-3" aria-hidden /> protected by a family passphrase
-              </Badge>
-            )}
-          </div>
-          {!lt.sealed && (
-            <Button className="mt-8" onClick={() => navigate({ name: 'dashboard' })}>
-              <Gift className="mr-1.5 h-4 w-4" aria-hidden /> Go to my legacies
-            </Button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
   /* ─── Sealed teaser view ─── */
   if (teaser?.teaser) {
     const t = teaser.teaser
@@ -206,7 +146,6 @@ export function PostDetail({ id }: { id: string }) {
 
   if (!data) return null
   const { post, isAuthor } = data
-  const isKeeper = !!data.isKeeper && !isAuthor
   const sealed = post.status === 'SEALED'
   const canReact = session && !sealed && post.privacy === 'PUBLIC' && !isAuthor
 
@@ -230,11 +169,6 @@ export function PostDetail({ id }: { id: string }) {
             )}
             {post.hidden && (
               <Badge variant="destructive" className="gap-1">Hidden by moderators</Badge>
-            )}
-            {isKeeper && (
-              <Badge className="gap-1 bg-primary text-primary-foreground">
-                <Gift className="h-3 w-3" aria-hidden /> Legacy · kept for you
-              </Badge>
             )}
           </div>
           <h1 className="font-display text-3xl font-bold leading-tight sm:text-4xl">{post.title}</h1>
@@ -307,63 +241,16 @@ export function PostDetail({ id }: { id: string }) {
         </div>
       )}
 
-      {/* author: copyable invite so the keepers actually learn the capsule exists */}
-      {isAuthor && post.heirs && post.heirs.length > 0 && (
+      {/* author: share the magic key so the right people learn the capsule exists */}
+      {isAuthor && post.hasMagicKey && (
         <div className="mb-6 rounded-xl border bg-card p-5">
           <p className="flex items-center gap-2 font-display text-base font-semibold">
-            <Send className="h-4 w-4 text-primary" aria-hidden /> Tell your keepers it exists
+            <KeyRound className="h-4 w-4 text-primary" aria-hidden /> Tell your people it exists
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            The capsule only finds them if they know to look. Send each keeper this message —
-            WhatsApp, SMS or a phone call all work. Any email provider works too, not just Gmail.
+            The capsule only opens for whoever holds your magic key. Send them this message —
+            WhatsApp, SMS or a phone call all work.
           </p>
-          <ul className="mt-4 space-y-2">
-            {post.heirs.map((h) => {
-              const invite = [
-                `I have sealed a message for you on Future Voices — a time capsule that opens ${post.releaseAt ? `on ${formatDate(post.releaseAt)}` : 'one day'}.`,
-                '',
-                'To claim it when the day comes:',
-                `1. Go to ${typeof window !== 'undefined' ? window.location.origin : ''}`,
-                `2. Create your account with this exact email: ${h.email}`,
-                '3. When it opens, speak our family word — and the message is yours to keep forever.',
-                '',
-                'You can check it is really there right now: open the site, scroll to "Has something been left for you?" and type this email.',
-              ].join('\n')
-              return (
-                <li key={h.id} className="flex flex-col gap-2 rounded-lg border bg-secondary/40 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{h.name || h.email}{h.claimedAt ? ' · claimed ✓' : ''}</p>
-                    <p className="truncate text-xs text-muted-foreground">{h.email}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(invite)
-                        toast({ title: 'Invite copied', description: `Paste it into a chat with ${h.name || h.email}.` })
-                      } catch {
-                        toast({ title: 'Could not copy', description: 'Copy the email and share this page with your keeper.', variant: 'destructive' })
-                      }
-                    }}
-                  >
-                    <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Copy invite
-                  </Button>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
-
-      {/* keeper's note from the author */}
-      {isKeeper && post.heirNote && !sealed && (
-        <div className="paper-grain mb-6 rounded-xl border border-primary/30 bg-primary/5 p-5">
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-primary">
-            <Gift className="h-3.5 w-3.5" aria-hidden /> A note from the one who sealed this
-          </p>
-          <p className="whitespace-pre-wrap font-display text-[15px] leading-relaxed">{post.heirNote}</p>
         </div>
       )}
 

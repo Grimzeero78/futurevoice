@@ -6,7 +6,7 @@ import { banUser, unbanUser } from '@/lib/moderation'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Admin: list members (search by name / email) with capsule + strike info
+// Admin: list members (search by name) with capsule + strike info
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req)
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
             ? {
                 OR: [
                   { displayName: { contains: q } },
-                  { email: { contains: q } },
+                  { name: { contains: q } },
                 ],
               }
             : {},
@@ -33,14 +33,13 @@ export async function GET(req: NextRequest) {
       take: 100,
       select: {
         id: true,
-        email: true,
+        name: true,
         displayName: true,
         role: true,
         banned: true,
         banReason: true,
         bannedAt: true,
         violations: true,
-        emailVerified: true,
         createdAt: true,
         _count: { select: { posts: true, reports: true } },
       },
