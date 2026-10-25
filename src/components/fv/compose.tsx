@@ -88,14 +88,14 @@ export function Compose({ editId }: { editId?: string }) {
   }, [cyYear, cyMonth])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     if (parseInt(cyDay, 10) > maxDay) setCyDay(String(maxDay))
   }, [maxDay, cyDay])
 
   useEffect(() => {
     if (!session) return
     if (!isEdit) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setLoadingPost(true)
     api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[]; heirs?: HeirEntry[]; heirNote?: string | null; hasHeirPassphrase?: boolean } }>(`/api/posts/${editId}`)
       .then((d) => {
@@ -416,7 +416,7 @@ export function Compose({ editId }: { editId?: string }) {
                 <Users className="h-4 w-4 text-primary" aria-hidden /> The keepers who will inherit this capsule
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Add the exact emails of your children, grandchildren or a trusted friend — up to ten. Even if you are not there on the day, the capsule finds them.
+                Add the exact emails of your children, grandchildren or a trusted friend — up to ten. Any provider works: Gmail, Yahoo, Outlook or school mail. Even if you are not there on the day, the capsule finds them — they can also check this site themselves with that email, any year.
               </p>
 
               {heirs.length > 0 && (

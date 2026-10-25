@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Hourglass, Lock, Video, Mail, ImageIcon, Archive, EyeOff, Tag,
   Download, ShieldCheck, ArrowRight, Sparkles, Heart, Gift, Users,
-  MailCheck, KeyRound, X,
+  MailCheck, KeyRound, X, Search, MailQuestion, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,21 +23,21 @@ const fadeUp = {
 
 const WALKTHROUGH = [
   {
-    img: '/demo/steps/step-1-write.png',
+    img: '/demo/steps/step-1-write.jpg',
     title: 'Write it, snap it, seal it in',
     body: 'A letter, photographs, a video or a voice note — attach everything you want the future to hold. No size limits, no file limits.',
     caption: 'The real compose form: Grace is writing to her grandchildren with a family photo attached.',
     alt: 'Compose form with a letter to grandchildren and a family photograph attached',
   },
   {
-    img: '/demo/steps/step-2-keepers.png',
+    img: '/demo/steps/step-2-keepers.jpg',
     title: 'Choose who will see it',
-    body: 'Just you? Your children & named keepers? Or everyone? Add the exact emails of the people who should inherit it — plus one family passphrase only you all know.',
+    body: 'Just you? Your children & named keepers? Or everyone? Add the exact emails of the people who should inherit it — any provider works, Gmail or not — plus one family passphrase only you all know.',
     caption: 'Choosing “My children & keepers”: Wanjiku and Kiama are named, and the family passphrase is set.',
     alt: 'Audience chooser with My children and keepers selected, showing keeper emails and a family passphrase',
   },
   {
-    img: '/demo/steps/step-3-seal.png',
+    img: '/demo/steps/step-3-seal.jpg',
     title: 'Seal it until the day comes',
     body: 'Pick any date: a birthday in 2056, a graduation in 2078 — or the year 3026, a full millennium away. Until then, not even a whisper escapes.',
     caption: 'The time lock: this capsule stays sealed until Monday, June 12, 2056 — in 29 years.',
@@ -65,29 +65,29 @@ const FEATURES = [
 
 const DEMO_LETTER = `My grandchildren,
 
-If you are reading this, fifty years have passed since a woman sat under a jacaranda tree and wrote to people she had never met. I was thirty-four. I had three children, a stone house with a tin roof, and a vegetable stall at the market that paid for all of it.
+If you are reading this, fifty years have passed since a man sat behind a fruit stall in Nakuru and wrote to people he had not yet met. I was fifty-one. I sold oranges and sugarcane at the market, and that stall paid the school fees of everyone I loved.
 
-I sealed this capsule in January 1972. The keeper probably thought I was mad. Maybe I was — but here we are, and you are reading my voice across half a century.
+I sealed this letter in December 1974. The man at the post office told me to be reasonable. Here we are anyway — my voice crossing half a century to find you.
 
 Three things I need you to know.
 
-One. We were happy on very little. The photographs in this capsule show it — look at our faces. Whatever you are chasing out there, do not forget that joy is not bought.
+One. We were happy with very little. The photographs prove it — look at our faces. Whatever you are chasing out there, do not forget that joy is not bought.
 
-Two. You come from farmers and traders and stubborn women. When the world tells you that you cannot, remember whose blood is in you.
+Two. You come from farmers and traders and people who get up before the sun. When the world tells you that you cannot, remember whose blood is in you.
 
-Three. I prayed for you every Sunday of my life — years before your parents met, before your names existed. You were never a stranger to me. You were a hope I carried.
+Three. Before your parents met, before your names existed, I prayed for you by name. You were never a stranger to me. You were a hope I carried to market every morning.
 
-Now tell me: is the jacaranda still purple in October? Do children still run barefoot after the rain?
+Now tell me: is the market still loud on Fridays? Do the rains still come in April?
 
 With all my love across the years,
-Your grandmother,
-Esther Wanjiku
-Nairobi · January 1972`
+Your grandfather,
+Joseph Kimani
+Nakuru · December 1974`
 
 type DemoPhase = 'closed' | 'sealed' | 'opening' | 'letter'
 
 function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPhase) => void }) {
-  const [year, setYear] = useState(1972)
+  const [year, setYear] = useState(1974)
 
   useEffect(() => {
     if (phase !== 'opening') return
@@ -96,8 +96,8 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
     const iv = setInterval(() => {
       const t = Math.min(1, (Date.now() - started) / total)
       const eased = 1 - Math.pow(1 - t, 3)
-      // 1972 → 2022 with an ease-out roll
-      setYear(1972 + Math.round(eased * (t === 0 ? 0 : 50)))
+      // 1974 → 2024 with an ease-out roll
+      setYear(1974 + Math.round(eased * (t === 0 ? 0 : 50)))
       if (t >= 1) {
         clearInterval(iv)
         setTimeout(() => setPhase('letter'), 350)
@@ -117,7 +117,7 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
           onClick={() => phase !== 'opening' && setPhase('closed')}
           role="dialog"
           aria-modal="true"
-          aria-label="Sample capsule from 1972"
+          aria-label="Sample capsule from 1974"
         >
           <motion.div
             initial={{ opacity: 0, y: 30, scale: 0.97 }}
@@ -144,15 +144,15 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
                 </Badge>
                 <h3 className="font-display text-2xl font-bold sm:text-3xl">“For my grandchildren, on the day the seal breaks”</h3>
                 <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Sealed in January 1972 by Esther Wanjiku, a market trader from Nairobi — addressed to grandchildren
-                  who did not exist yet. It waited fifty years.
+                  Sealed in December 1974 by Joseph Kimani, a fruit trader from Nakuru — addressed to a grandson
+                  small enough to sit on his knee. It waited fifty years.
                 </p>
                 <div className="mx-auto mt-8 max-w-xs rounded-xl border border-primary/30 bg-card p-5 shadow-lg">
                   <span className="wax-seal mx-auto flex h-16 w-16 items-center justify-center rounded-full">
                     <Lock className="h-7 w-7 text-primary-foreground" aria-hidden />
                   </span>
                   <p className="mt-4 text-xs font-medium uppercase tracking-widest text-primary">Sealed for 50 years</p>
-                  <p className="mt-1 text-xs text-muted-foreground">1972 ——— 2022</p>
+                  <p className="mt-1 text-xs text-muted-foreground">1974 ——— 2024</p>
                 </div>
                 <Button size="lg" className="mt-8 h-12 px-8 text-base" onClick={() => setPhase('opening')}>
                   <Sparkles className="mr-2 h-4 w-4" aria-hidden /> Break the seal
@@ -171,7 +171,7 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
                 </motion.div>
                 <p className="mt-8 font-display text-6xl font-bold tabular-nums text-primary sm:text-7xl">{year}</p>
                 <p className="mt-4 text-sm uppercase tracking-[0.3em] text-muted-foreground">
-                  {year < 2022 ? 'the seal is breaking…' : 'the capsule is open'}
+                  {year < 2024 ? 'the seal is breaking…' : 'the capsule is open'}
                 </p>
               </div>
             )}
@@ -179,19 +179,19 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
             {phase === 'letter' && (
               <div className="px-5 py-8 sm:px-10">
                 <div className="paper-grain rounded-xl border bg-card p-6 shadow-sm sm:p-8">
-                  <p className="text-xs font-medium uppercase tracking-widest text-primary">Sealed 1972 · Opened 2022 · 50 years in waiting</p>
+                  <p className="text-xs font-medium uppercase tracking-widest text-primary">Sealed 1974 · Opened 2024 · 50 years in waiting</p>
                   <h3 className="mt-2 font-display text-2xl font-bold">For my grandchildren, on the day the seal breaks</h3>
                   <p className="mt-5 whitespace-pre-wrap font-display text-[15px] leading-relaxed">{DEMO_LETTER}</p>
                 </div>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <figure className="overflow-hidden rounded-xl border shadow-sm">
-                    <img src="/demo/esther-family.jpg" alt="A family of five in front of a stone house under a jacaranda tree, 1971" className="aspect-[4/3] w-full object-cover" loading="lazy" />
-                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">Our family outside the house, 1971 — look at our faces.</figcaption>
+                    <img src="/demo/kamau-family.jpg" alt="A grandfather in a checked shirt holding his young grandson on his knee, photographed on film" className="aspect-[4/3] w-full object-cover" loading="lazy" />
+                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">The grandson this letter is for, on my knee, 1974.</figcaption>
                   </figure>
                   <figure className="overflow-hidden rounded-xl border shadow-sm">
-                    <img src="/demo/esther-market.jpg" alt="Women selling vegetables and baskets at an open-air market, 1968" className="aspect-[4/3] w-full object-cover" loading="lazy" />
-                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">My stall at the market, 1968 — where every shilling was earned.</figcaption>
+                    <img src="/demo/kamau-market.jpg" alt="A busy open-air market stall stacked with watermelons, bananas and tomatoes under corrugated roofs" className="aspect-[4/3] w-full object-cover" loading="lazy" />
+                    <figcaption className="bg-card px-3 py-2 text-xs text-muted-foreground">My stall at the market — every shilling of school fees stood right here.</figcaption>
                   </figure>
                 </div>
 
@@ -199,7 +199,7 @@ function DemoModal({ phase, setPhase }: { phase: DemoPhase; setPhase: (p: DemoPh
                   <Gift className="mx-auto mb-3 h-7 w-7 text-primary" aria-hidden />
                   <h4 className="font-display text-xl font-bold">Now imagine whose name is on yours.</h4>
                   <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-                    This capsule took Esther about ten minutes to write — and it defined a day, fifty years later.
+                    This capsule took Kimani about ten minutes to write — and it defined a day, fifty years later.
                     Seal yours for 2056, for 3026, or for a grandchild you haven&apos;t met yet.
                   </p>
                   <DemoCTA className="mt-5" label="Seal your own capsule" />
@@ -223,6 +223,112 @@ function DemoCTA({ label, className }: { label: string; className?: string }) {
     <Button size="lg" className={className} onClick={() => (session ? navigate({ name: 'compose' }) : openAuth('register'))}>
       {label} <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
     </Button>
+  )
+}
+
+// ─── “Has something been left for me?” — public legacy lookup ─────────────
+
+type LookupResult = {
+  found: boolean
+  capsules: { authorName: string; releaseAt: string | null; sealed: boolean; claimed: boolean }[]
+}
+
+function LegacyLookup() {
+  const openAuth = useFV((s) => s.openAuth)
+  const [email, setEmail] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [result, setResult] = useState<LookupResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function check(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setResult(null)
+    setChecking(true)
+    try {
+      const r = await api<LookupResult>('/api/legacy/lookup', { method: 'POST', json: { email } })
+      setResult(r)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong — try again.')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <motion.div {...fadeUp} className="mx-auto mt-12 max-w-2xl rounded-2xl border border-primary/25 bg-card p-6 shadow-lg sm:p-8">
+      <div className="flex items-start gap-4">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+          <MailQuestion className="h-5 w-5 text-primary" aria-hidden />
+        </span>
+        <div className="flex-1">
+          <h3 className="font-display text-xl font-bold">Has something been left for you?</h3>
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+            Someone may have sealed a capsule with your name on it. Enter the email they wrote down —
+            <span className="font-medium text-foreground"> any email works</span>: Gmail, Yahoo, Outlook or school mail.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={check} className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <label htmlFor="legacy-lookup-email" className="sr-only">Your email address</label>
+        <input
+          id="legacy-lookup-email"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="h-11 flex-1 rounded-md border bg-background px-3 text-sm outline-none ring-primary focus:ring-2"
+        />
+        <Button type="submit" disabled={checking} className="h-11">
+          {checking ? <Hourglass className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : <Search className="mr-2 h-4 w-4" aria-hidden />}
+          {checking ? 'Looking…' : 'Check for my legacy'}
+        </Button>
+      </form>
+
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+
+      {result && !result.found && (
+        <div className="mt-5 rounded-xl border border-dashed p-5 text-center">
+          <p className="text-sm font-medium">Nothing is waiting at that address yet.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            It may come one day. Or nudge your family — someone out there should be sealing you a capsule.
+          </p>
+        </div>
+      )}
+
+      {result && result.found && (
+        <div className="mt-5 space-y-3">
+          {result.capsules.map((c, i) => (
+            <div key={i} className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="flex items-start gap-2 text-sm font-medium">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <span>
+                  {c.claimed
+                    ? <>A capsule from <span className="text-primary">{c.authorName}</span> is yours — you claimed it. It lives in your vault forever.</>
+                    : c.sealed
+                      ? <>A sealed capsule from <span className="text-primary">{c.authorName}</span> is waiting for you{c.releaseAt ? <> — it opens <span className="text-primary">{new Date(c.releaseAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span></> : null}.</>
+                      : <>A capsule from <span className="text-primary">{c.authorName}</span> has opened — claim it and it is yours to keep.</>
+                    }
+                </span>
+              </p>
+            </div>
+          ))}
+          <div className="rounded-xl bg-secondary/60 p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">How to claim it</p>
+            <p className="mt-1 leading-relaxed">
+              1 · Sign in (or create your account) using <span className="font-medium text-foreground">exactly this email</span> — {email}
+              <br />2 · Open “My vault” → the Legacies tab — the capsule is listed there, even while sealed
+              <br />3 · On the day it opens, speak the family word — and it is yours to keep forever
+            </p>
+            <Button size="sm" className="mt-3" onClick={() => openAuth('login')}>
+              Sign in to see it <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden />
+            </Button>
+          </div>
+        </div>
+      )}
+    </motion.div>
   )
 }
 
@@ -334,8 +440,8 @@ export function Landing() {
             <div className="overflow-hidden rounded-2xl border shadow-xl">
               { }
               <img
-                src="/demo/legacy-hero.jpg"
-                alt="A grandfather and his granddaughter opening a wooden box of letters and photographs together"
+                src="/demo/keepers-hands.jpg"
+                alt="The weathered hands of an elder resting on a wooden walking stick, photographed in black and white"
                 className="aspect-[4/3] w-full object-cover"
                 loading="lazy"
               />
@@ -351,13 +457,13 @@ export function Landing() {
             </span>
             <h2 className="font-display text-3xl font-bold sm:text-4xl">Open a capsule from the past.</h2>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              In 1972, Esther Wanjiku sealed a letter for grandchildren she would never meet.
+              In 1974, Joseph Kimani sealed a letter for the grandson asleep on his knee.
               It waited fifty years. This is what the day it opened felt like —
               <span className="font-medium text-foreground"> experience it for yourself.</span>
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button size="lg" onClick={() => setDemoPhase('sealed')} className="h-12 px-7 text-base">
-                <Lock className="mr-2 h-4 w-4" aria-hidden /> Open Esther&apos;s capsule
+                <Lock className="mr-2 h-4 w-4" aria-hidden /> Open Kimani&apos;s capsule
               </Button>
               <span className="text-sm text-muted-foreground">Takes 60 seconds. Tissues optional.</span>
             </div>
@@ -439,7 +545,9 @@ export function Landing() {
             <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
               Lock a capsule for 30 years and one honest question appears: who hands it over?
               With Future Voices, your grandchildren don&apos;t need you there — they need the
-              email you wrote, and one word your family knows.
+              email you wrote (any provider — Gmail, Yahoo, Outlook or school mail), and one
+              word your family knows. No Gmail required, and no message gets lost: they can
+              check for their legacy on this very page, any year, any decade.
             </p>
           </motion.div>
 
@@ -453,7 +561,7 @@ export function Landing() {
               {
                 icon: MailCheck,
                 title: '2 · The day it opens, they are invited',
-                body: 'From the day you seal it, keepers see it waiting in the Legacies tab of their own vault — “something is kept for you, it opens June 12, 2056.” When the date arrives we email them automatically.',
+                body: 'From the day you seal it, keepers see it waiting in the Legacies tab of their own vault — and if they ever forget, one visit to this homepage answers “has something been left for me?”. When the date arrives we email them automatically — any email provider works.',
               },
               {
                 icon: KeyRound,
@@ -471,6 +579,8 @@ export function Landing() {
               </motion.div>
             ))}
           </div>
+
+          <LegacyLookup />
 
           <motion.div {...fadeUp} className="mt-10 rounded-2xl border border-primary/25 bg-card p-6 shadow-lg sm:p-8">
             <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">

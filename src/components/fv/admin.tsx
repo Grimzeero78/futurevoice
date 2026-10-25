@@ -73,12 +73,12 @@ export function Admin() {
   }, [])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     if (session?.role === 'ADMIN') void loadReports()
   }, [session, loadReports])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     if (session?.role === 'ADMIN' && tab === 'members') void loadMembers(memberQuery)
   }, [session, tab, loadMembers, memberQuery])
 

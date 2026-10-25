@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Eye, Flag, Pencil, Trash2, Globe, EyeOff, Lock, Unlock, Hourglass, CalendarDays, Loader2,
-  AlertTriangle, MailOpen, Gift, KeyRound,
+  AlertTriangle, MailOpen, Gift, KeyRound, Send, Copy,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -77,7 +77,7 @@ export function PostDetail({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     void load()
   }, [load, session])
 
@@ -304,6 +304,56 @@ export function PostDetail({ id }: { id: string }) {
               You are the author — you can preview the contents below. Everyone else sees only the seal.
             </p>
           )}
+        </div>
+      )}
+
+      {/* author: copyable invite so the keepers actually learn the capsule exists */}
+      {isAuthor && post.heirs && post.heirs.length > 0 && (
+        <div className="mb-6 rounded-xl border bg-card p-5">
+          <p className="flex items-center gap-2 font-display text-base font-semibold">
+            <Send className="h-4 w-4 text-primary" aria-hidden /> Tell your keepers it exists
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The capsule only finds them if they know to look. Send each keeper this message —
+            WhatsApp, SMS or a phone call all work. Any email provider works too, not just Gmail.
+          </p>
+          <ul className="mt-4 space-y-2">
+            {post.heirs.map((h) => {
+              const invite = [
+                `I have sealed a message for you on Future Voices — a time capsule that opens ${post.releaseAt ? `on ${formatDate(post.releaseAt)}` : 'one day'}.`,
+                '',
+                'To claim it when the day comes:',
+                `1. Go to ${typeof window !== 'undefined' ? window.location.origin : ''}`,
+                `2. Create your account with this exact email: ${h.email}`,
+                '3. When it opens, speak our family word — and the message is yours to keep forever.',
+                '',
+                'You can check it is really there right now: open the site, scroll to "Has something been left for you?" and type this email.',
+              ].join('\n')
+              return (
+                <li key={h.id} className="flex flex-col gap-2 rounded-lg border bg-secondary/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{h.name || h.email}{h.claimedAt ? ' · claimed ✓' : ''}</p>
+                    <p className="truncate text-xs text-muted-foreground">{h.email}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(invite)
+                        toast({ title: 'Invite copied', description: `Paste it into a chat with ${h.name || h.email}.` })
+                      } catch {
+                        toast({ title: 'Could not copy', description: 'Copy the email and share this page with your keeper.', variant: 'destructive' })
+                      }
+                    }}
+                  >
+                    <Copy className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Copy invite
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
 

@@ -46,7 +46,7 @@ export function AuthDialog() {
 
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setRegistered(null)
       setResetInfo(null)
       // ask the server once per open whether Google sign-in is configured
