@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Plus, Download, Eye, Heart, Lock, Globe, EyeOff, Pencil, Trash2, MoreHorizontal,
-  Vault, Hourglass, Gift,
+  Vault, Hourglass, Gift, KeyRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -199,6 +199,14 @@ export function Dashboard() {
                       <Badge className="gap-1 bg-primary/15 text-primary text-[10px]">
                         <Lock className="h-2.5 w-2.5" aria-hidden /> sealed
                       </Badge>
+                    )}
+                    {p.hasMagicKey && (
+                      <Badge className="gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px]">
+                        <KeyRound className="h-2.5 w-2.5" aria-hidden /> magic key
+                      </Badge>
+                    )}
+                    {p.magicKeyOpenedAt && (
+                      <Badge variant="outline" className="text-[10px]">opened by key</Badge>
                     )}
                     <span>· {formatDate(p.createdAt)} · {p.views} views · {p.reactionTotal} signals</span>
                   </div>

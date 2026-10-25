@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Loader2, UploadCloud, X, Lock, Unlock, Globe, EyeOff, CalendarClock, Trash2, Send, Infinity as InfinityIcon,
-  Users, KeyRound, MailPlus,
+  Users, KeyRound, MailPlus, Wand2, PenLine,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,7 +57,7 @@ export function Compose({ editId }: { editId?: string }) {
   const [content, setContent] = useState('')
   const [recipientTag, setRecipientTag] = useState<string>('NONE')
   const [customRecipient, setCustomRecipient] = useState('')
-  const [audience, setAudience] = useState<'PRIVATE' | 'HEIRS' | 'PUBLIC'>('PRIVATE')
+  const [audience, setAudience] = useState<'PRIVATE' | 'HEIRS' | 'MAGIC' | 'PUBLIC'>('PRIVATE')
   const [appearInArchive, setAppearInArchive] = useState(true)
   const [releaseDate, setReleaseDate] = useState<Date | undefined>(undefined)
   // custom date builder state
@@ -80,6 +80,12 @@ export function Compose({ editId }: { editId?: string }) {
   const [hasHeirPass, setHasHeirPass] = useState(false) // edit mode: a passphrase is already set
   const [heirNote, setHeirNote] = useState('')
 
+  // ── magic key state ──
+  const [magicKey, setMagicKey] = useState('')
+  const [magicHint, setMagicHint] = useState('')
+  const [hasMagicKey, setHasMagicKey] = useState(false) // edit mode: a key is already set
+  const [keyReminder, setKeyReminder] = useState<string | null>(null) // post-save "write it down" dialog
+
   const maxDay = useMemo(() => {
     const y = parseInt(cyYear, 10)
     const m = parseInt(cyMonth, 10)
@@ -97,11 +103,19 @@ export function Compose({ editId }: { editId?: string }) {
     if (!isEdit) return
      
     setLoadingPost(true)
-    api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[]; heirs?: HeirEntry[]; heirNote?: string | null; hasHeirPassphrase?: boolean } }>(`/api/posts/${editId}`)
+    api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[]; heirs?: HeirEntry[]; heirNote?: string | null; hasHeirPassphrase?: boolean; hasMagicKey?: boolean; magicKeyHint?: string | null } }>(`/api/posts/${editId}`)
       .then((d) => {
         setTitle(d.post.title)
         setContent(d.post.content ?? '')
-        setAudience(d.post.heirs && d.post.heirs.length > 0 ? 'HEIRS' : d.post.privacy === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE')
+        setAudience(
+          d.post.heirs && d.post.heirs.length > 0
+            ? 'HEIRS'
+            : d.post.hasMagicKey
+              ? 'MAGIC'
+              : d.post.privacy === 'PUBLIC'
+                ? 'PUBLIC'
+                : 'PRIVATE',
+        )
         setRecipientTag(d.post.recipientTag)
         setCustomRecipient(d.post.customRecipient ?? '')
         setAppearInArchive(d.post.appearInArchive)
@@ -110,6 +124,8 @@ export function Compose({ editId }: { editId?: string }) {
         if (d.post.heirs) setHeirs(d.post.heirs)
         if (d.post.heirNote) setHeirNote(d.post.heirNote)
         setHasHeirPass(!!d.post.hasHeirPassphrase)
+        setHasMagicKey(!!d.post.hasMagicKey)
+        if (d.post.magicKeyHint) setMagicHint(d.post.magicKeyHint)
       })
       .catch((e) => toast({ title: 'Could not load capsule', description: e.message, variant: 'destructive' }))
       .finally(() => setLoadingPost(false))
@@ -182,6 +198,10 @@ export function Compose({ editId }: { editId?: string }) {
       toast({ title: 'Name at least one keeper', description: 'You chose to hand this capsule to specific people — add their email, or pick a different audience.', variant: 'destructive' })
       return
     }
+    if (audience === 'MAGIC' && !magicKey.trim() && !hasMagicKey) {
+      toast({ title: 'Choose your magic key', description: 'You picked the magic key door — write the secret word, number or phrase your people will speak.', variant: 'destructive' })
+      return
+    }
 
     setSaving(true)
     try {
@@ -197,10 +217,19 @@ export function Compose({ editId }: { editId?: string }) {
         heirs: audience === 'HEIRS' ? heirs : [],
         heirNote: audience === 'HEIRS' ? heirNote.trim() : '',
         ...(heirPassphrase.trim() ? { heirPassphrase: heirPassphrase.trim() } : {}),
+        ...((audience === 'MAGIC' || audience === 'HEIRS') && magicKey.trim()
+          ? { magicKey: magicKey.trim(), magicKeyHint: magicHint.trim() }
+          : {}),
       }
       if (isEdit) {
         await api(`/api/posts/${editId}`, { method: 'PATCH', json: payload })
         toast({ title: 'Capsule updated', description: 'Your changes are sealed in.' })
+        if (magicKey.trim()) {
+          setKeyReminder(magicKey.trim())
+          setMagicKey('')
+          setHasMagicKey(true)
+          return
+        }
         navigate({ name: 'post', id: editId! })
       } else {
         const d = await api<{ post: { id: string; status: string } }>('/api/posts', { method: 'POST', json: payload })
@@ -210,6 +239,11 @@ export function Compose({ editId }: { editId?: string }) {
             ? `It will open on ${formatDate(releaseDate)}. Until then, not even a whisper escapes.`
             : 'Your message is now traveling to the future.',
         })
+        if (audience === 'MAGIC' && magicKey.trim()) {
+          setKeyReminder(magicKey.trim())
+          setMagicKey('')
+          return
+        }
         navigate({ name: 'dashboard' })
       }
     } catch (err) {
@@ -370,7 +404,7 @@ export function Compose({ editId }: { editId?: string }) {
         <section className="rounded-xl border bg-card p-5 shadow-sm" aria-labelledby="privacy-heading">
           <h2 id="privacy-heading" className="font-semibold">Who will see this capsule?</h2>
           <p className="mb-4 mt-1 text-sm text-muted-foreground">The most important choice on this page — and you can change it any time while the capsule is still yours to edit.</p>
-          <RadioGroup value={audience} onValueChange={(v) => setAudience(v as 'PRIVATE' | 'HEIRS' | 'PUBLIC')} className="grid gap-3 md:grid-cols-3">
+          <RadioGroup value={audience} onValueChange={(v) => setAudience(v as 'PRIVATE' | 'HEIRS' | 'MAGIC' | 'PUBLIC')} className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <label
               className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${audience === 'PRIVATE' ? 'border-primary bg-primary/5' : 'hover:bg-secondary/50'}`}
             >
@@ -387,6 +421,15 @@ export function Compose({ editId }: { editId?: string }) {
               <div>
                 <span className="flex items-center gap-1.5 font-medium"><Users className="h-4 w-4" aria-hidden /> My children &amp; keepers</span>
                 <span className="mt-1 block text-xs text-muted-foreground">Stays private. When the seal breaks, only the people you name below can claim and read it — even 30 or 1,000 years from now.</span>
+              </div>
+            </label>
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${audience === 'MAGIC' ? 'border-primary bg-primary/5 ring-1 ring-primary/40' : 'hover:bg-secondary/50'}`}
+            >
+              <RadioGroupItem value="MAGIC" id="aud-magic" className="mt-0.5" />
+              <div>
+                <span className="flex items-center gap-1.5 font-medium"><KeyRound className="h-4 w-4" aria-hidden /> A magic key</span>
+                <span className="mt-1 block text-xs text-muted-foreground">No emails at all. Choose a secret word, number or name — write it on paper and hand it over like a physical key.</span>
               </div>
             </label>
             <label
@@ -529,6 +572,83 @@ export function Compose({ editId }: { editId?: string }) {
             </div>
           )}
 
+          {(audience === 'MAGIC' || audience === 'HEIRS') && (
+            <div className="mt-4 rounded-lg border border-primary/25 bg-primary/[0.04] p-4 sm:p-5">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <Wand2 className="h-4 w-4 text-primary" aria-hidden /> The Magic Key
+                {audience === 'MAGIC' && <span className="text-xs font-normal text-muted-foreground">— the only key to this capsule</span>}
+              </p>
+              {audience === 'MAGIC' ? (
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Leave a physical key, like a note in a will: <span className="text-foreground">“I have left you a message on Future Voices. Open the site, tap ‘I have a magic key’, and speak the word.”</span>{' '}
+                  Perfect for grandchildren who are not born yet, have no email of their own, or may never create an account. One day they will type the word — and your message will open.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Optional second door: besides the named keepers&apos; emails, anyone holding this one word can open the capsule here once its time arrives — no account, no email needed.
+                </p>
+              )}
+
+              <div className="mt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="magic-key" className="flex items-center gap-1.5 text-sm">
+                    <KeyRound className="h-3.5 w-3.5 text-primary" aria-hidden /> The magic key
+                  </Label>
+                  <Input
+                    id="magic-key"
+                    value={magicKey}
+                    onChange={(e) => setMagicKey(e.target.value)}
+                    maxLength={200}
+                    placeholder={hasMagicKey ? 'Already set — type a new key to replace it' : 'e.g. “grandpa’s red bicycle 1978”, “AMINA-7391”, the name of our ancestral home'}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Make it a phrase, not just a name — something only your people would ever guess. The site stores it only as an unreadable fingerprint and can never show it to anyone, not even you.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="magic-hint" className="text-sm">A hint they may see while it is still sealed <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Input
+                    id="magic-hint"
+                    value={magicHint}
+                    onChange={(e) => setMagicHint(e.target.value)}
+                    maxLength={200}
+                    placeholder="e.g. It is the name of our first dog and the year we brought her home"
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">Only a correct key sees the hint — a wrong guess reveals nothing at all.</p>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <PenLine className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+                    Write it on paper and put it where it matters — an envelope, a will, the family book.
+                  </p>
+                  {isEdit && hasMagicKey && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      onClick={async () => {
+                        try {
+                          await api(`/api/posts/${editId}`, { method: 'PATCH', json: { magicKey: '' } })
+                          setHasMagicKey(false)
+                          setMagicKey('')
+                          setMagicHint('')
+                          toast({ title: 'Magic key removed' })
+                        } catch (err) {
+                          toast({ title: 'Could not remove key', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
+                        }
+                      }}
+                    >
+                      Remove key
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 rounded-lg border border-dashed p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -659,6 +779,29 @@ export function Compose({ editId }: { editId?: string }) {
             {isEdit ? 'Save changes' : releaseDate ? 'Seal & schedule' : 'Launch capsule'}
           </Button>
         </div>
+        {/* ─── Magic key reminder (after saving) ─── */}
+        <AlertDialog open={!!keyReminder} onOpenChange={(open) => { if (!open) { setKeyReminder(null); navigate({ name: 'dashboard' }) } }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="font-display">Your magic key is set 🔑</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3 text-left">
+                  <p>Write this word down <span className="font-medium text-foreground">now</span> — this is the only time the site will ever show it to you:</p>
+                  <p className="rounded-lg border bg-secondary/60 px-4 py-3 text-center font-display text-lg font-bold tracking-wide text-foreground">
+                    {keyReminder}
+                  </p>
+                  <p className="leading-relaxed">
+                    Put the paper where it matters — an envelope, a will, the family book — and tell them:
+                    <span className="text-foreground"> “When the day comes, open Future Voices, tap ‘I have a magic key’, and speak the word.”</span>
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction>I have written it down</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </form>
     </div>
   )

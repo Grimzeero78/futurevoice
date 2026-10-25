@@ -34,6 +34,7 @@ model User {
   reactions  Reaction[]
   reports    Report[]
   heirClaims Heir[] // legacies this account has claimed as a keeper/heir
+  diary      DiaryEntry[]
 }
 
 model Session {
@@ -75,6 +76,10 @@ model Post {
   hiddenReason    String?
   heirNote        String? // a private note from the author, shown to keepers when they open the legacy
   heirPassHash    String? // scrypt hash of the optional family passphrase keepers must enter once
+  magicKeyHash    String? // scrypt hash of the Magic Key — a word/number/phrase the author leaves for their people instead of (or beside) emails
+  magicKeyLookup  String? // HMAC-SHA256(normalized key, server secret) — lets the site FIND the capsule from the key without ever storing the key itself
+  magicKeyHint    String? // optional hint shown to a key-holder while the capsule is still sealed (never shown for a wrong key)
+  magicKeyOpenedAt DateTime? // the first time someone unlocked this capsule with the Magic Key
   views           Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -83,6 +88,8 @@ model Post {
   reactions Reaction[]
   reports   Report[]
   heirs     Heir[]
+
+  @@index([magicKeyLookup])
 }
 
 // A person named by the author who may claim a capsule once its
@@ -101,6 +108,24 @@ model Heir {
 
   @@unique([postId, email])
   @@index([email])
+}
+
+// A page of the author's everyday diary — the small, ordinary days,
+// recorded for later. An entry can also be sealed: even the author
+// cannot read it again until its seal date arrives.
+model DiaryEntry {
+  id          String    @id @default(cuid())
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  mood        String?   // optional mood chip, e.g. SUNNY | CALM | STORMY | GRATEFUL | HOPEFUL
+  entryDate   DateTime  // the day being recorded (may differ from createdAt)
+  sealedUntil DateTime? // personal time-lock: hidden from everyone — including the author — until then
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([authorId, entryDate])
 }
 
 model Media {

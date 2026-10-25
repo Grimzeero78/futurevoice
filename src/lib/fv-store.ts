@@ -23,6 +23,7 @@ export type View =
   | { name: 'edit'; id: string }
   | { name: 'post'; id: string }
   | { name: 'dashboard' }
+  | { name: 'diary' }
   | { name: 'profile' }
   | { name: 'admin' }
 
@@ -44,6 +45,8 @@ export function parseHash(hash: string): View {
       return tail ? { name: 'post', id: tail } : { name: 'archive' }
     case 'dashboard':
       return { name: 'dashboard' }
+    case 'diary':
+      return { name: 'diary' }
     case 'profile':
       return { name: 'profile' }
     case 'admin':

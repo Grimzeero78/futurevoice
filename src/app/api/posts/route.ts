@@ -8,6 +8,7 @@ import {
   parseRecipientTag,
   parseReleaseDate,
   parseHeirs,
+  parseMagicKey,
   assertMediaOwnership,
 } from '@/lib/fv-core'
 import { screenText, registerViolation } from '@/lib/moderation'
@@ -114,6 +115,8 @@ export async function POST(req: NextRequest) {
     const heirs = parseHeirs(body.heirs)
     const heirNote = String(body.heirNote ?? '').trim() || null
     const heirPassphrase = String(body.heirPassphrase ?? '').trim()
+    const magicKey = String(body.magicKey ?? '').trim()
+    const magicKeyHint = String(body.magicKeyHint ?? '').trim() || null
 
     if (!title || title.length > 120) {
       throw new HttpError(400, 'Please give your capsule a title (up to 120 characters).')
@@ -133,6 +136,12 @@ export async function POST(req: NextRequest) {
     if (heirPassphrase.length > 200) {
       throw new HttpError(400, 'The family passphrase is limited to 200 characters.')
     }
+    if (magicKeyHint && magicKeyHint.length > 200) {
+      throw new HttpError(400, 'The hint for your magic key is limited to 200 characters.')
+    }
+    // The Magic Key: a secret word/number/phrase instead of (or beside) keeper emails.
+    // Only its HMAC lookup + scrypt hash are ever stored.
+    const parsedMagicKey = magicKey ? parseMagicKey(magicKey) : null
     await assertMediaOwnership(mediaIds, user.id)
 
     // ── Community standards: public capsules are screened before publishing ──
@@ -164,6 +173,13 @@ export async function POST(req: NextRequest) {
         appearInArchive: privacy === 'PUBLIC' ? appearInArchive : true,
         heirNote,
         heirPassHash: heirPassphrase ? hashPassword(heirPassphrase) : null,
+        ...(parsedMagicKey
+          ? {
+              magicKeyHash: hashPassword(parsedMagicKey.normalized),
+              magicKeyLookup: parsedMagicKey.lookup,
+              magicKeyHint,
+            }
+          : {}),
         media: { connect: mediaIds.map((id) => ({ id })) },
         heirs: { create: heirs.map((h) => ({ email: h.email, name: h.name })) },
       },

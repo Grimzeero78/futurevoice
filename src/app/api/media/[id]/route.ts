@@ -3,7 +3,7 @@ import { Readable } from 'stream'
 import { db } from '@/lib/db'
 import { getCurrentUser, errorResponse } from '@/lib/auth'
 import { assertInsideUploadDir, fileSize, openRange, deleteStorageFile } from '@/lib/storage'
-import { isSealed } from '@/lib/fv-core'
+import { isSealed, verifyMagicGrant } from '@/lib/fv-core'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +19,10 @@ export const dynamic = 'force-dynamic'
  *
  * Responses are STREAMED from disk (never fully buffered), with byte-range
  * support so giant videos seek smoothly and start playing instantly.
+ *
+ * Magic-key readers hold no account: once a capsule has opened, its files
+ * are also reachable with a short-lived HMAC grant (?g=exp.sig) that the
+ * claim endpoint issues — it authorizes exactly this capsule, then expires.
  */
 function accessDenied(sealedOnly = false) {
   return NextResponse.json(
@@ -35,7 +39,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const media = await db.media.findUnique({
       where: { id },
       include: {
-        post: { select: { authorId: true, privacy: true, status: true, releaseAt: true, hidden: true } },
+        post: { select: { authorId: true, privacy: true, status: true, releaseAt: true, hidden: true, magicKeyHash: true } },
       },
     })
     if (!media) return NextResponse.json({ error: 'Media not found.' }, { status: 404 })
@@ -51,11 +55,18 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
       heirUnlocked = !!heir && released && !media.post.hidden
     }
+    // magic-key reader: signed grant + the capsule has actually opened
+    let magicUnlocked = false
+    if (media.post?.magicKeyHash && media.postId && !media.post.hidden) {
+      const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
+      magicUnlocked =
+        released && verifyMagicGrant(media.postId, req.nextUrl.searchParams.get('g'))
+    }
     if (media.post) {
       const postAuthor = media.post.authorId === user?.id
       const publiclyVisible =
         media.post.privacy === 'PUBLIC' && !media.post.hidden && !isSealed(media.post)
-      if (!postAuthor && !publiclyVisible && !heirUnlocked) {
+      if (!postAuthor && !publiclyVisible && !heirUnlocked && !magicUnlocked) {
         const sealedOnly = media.post.privacy === 'PUBLIC' && !media.post.hidden && isSealed(media.post)
         return accessDenied(sealedOnly)
       }
@@ -66,7 +77,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const filePath = assertInsideUploadDir(media.storagePath)
     const size = await fileSize(filePath)
 
-    const privateAccess = (isOwner && !media.post) || (!!media.post && !isOwner)
+    const privateAccess = (isOwner && !media.post) || (!!media.post && !isOwner) || magicUnlocked
     const baseHeaders = new Headers({
       'Content-Type': media.mimeType,
       'Cache-Control': privateAccess ? 'private, max-age=3600' : 'public, max-age=86400',
@@ -123,7 +134,7 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
     const user = await getCurrentUser(req)
     const media = await db.media.findUnique({
       where: { id },
-      include: { post: { select: { authorId: true, privacy: true, status: true, releaseAt: true, hidden: true } } },
+      include: { post: { select: { authorId: true, privacy: true, status: true, releaseAt: true, hidden: true, magicKeyHash: true } } },
     })
     if (!media) return new NextResponse(null, { status: 404 })
     const isOwner = !!user && user.id === media.ownerId
@@ -133,16 +144,21 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
         where: { postId: media.postId ?? '', email: user.email, claimedAt: { not: null } },
         select: { id: true },
       })
-      // release DATE is the source of truth for keepers (never early, no sweep-lag)
       const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
       heirUnlocked = !!heir && released && !media.post.hidden
+    }
+    let magicUnlocked = false
+    if (media.post?.magicKeyHash && media.postId && !media.post.hidden) {
+      const released = !media.post.releaseAt || media.post.releaseAt <= new Date()
+      magicUnlocked =
+        released && verifyMagicGrant(media.postId, req.nextUrl.searchParams.get('g'))
     }
     const publiclyVisible =
       media.post &&
       media.post.privacy === 'PUBLIC' &&
       !media.post.hidden &&
       !isSealed(media.post)
-    if (!isOwner && !publiclyVisible && !heirUnlocked) return new NextResponse(null, { status: 403 })
+    if (!isOwner && !publiclyVisible && !heirUnlocked && !magicUnlocked) return new NextResponse(null, { status: 403 })
 
     const filePath = assertInsideUploadDir(media.storagePath)
     const size = await fileSize(filePath)

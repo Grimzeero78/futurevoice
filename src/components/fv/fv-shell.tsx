@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import {
   Hourglass, Archive, Plus, LayoutDashboard, Moon, Sun, Download,
-  ShieldCheck, LogOut, UserCircle2, Menu, MailWarning,
+  ShieldCheck, LogOut, UserCircle2, Menu, MailWarning, NotebookPen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +19,7 @@ import { Archive as ArchiveView } from '@/components/fv/archive'
 import { Compose } from '@/components/fv/compose'
 import { PostDetail } from '@/components/fv/post-detail'
 import { Dashboard } from '@/components/fv/dashboard'
+import { Diary } from '@/components/fv/diary'
 import { Profile } from '@/components/fv/profile'
 import { Admin } from '@/components/fv/admin'
 import { api, initials } from '@/lib/fv-client'
@@ -111,9 +112,14 @@ export function FVShell() {
                 <Archive className="mr-1.5 h-4 w-4" aria-hidden /> Archive
               </Button>
               {session && (
-                <Button variant="ghost" onClick={() => navigate({ name: 'dashboard' })}>
-                  <LayoutDashboard className="mr-1.5 h-4 w-4" aria-hidden /> My vault
-                </Button>
+                <>
+                  <Button variant="ghost" onClick={() => navigate({ name: 'dashboard' })}>
+                    <LayoutDashboard className="mr-1.5 h-4 w-4" aria-hidden /> My vault
+                  </Button>
+                  <Button variant="ghost" onClick={() => navigate({ name: 'diary' })}>
+                    <NotebookPen className="mr-1.5 h-4 w-4" aria-hidden /> Diary
+                  </Button>
+                </>
               )}
               <Button onClick={() => (session ? navigate({ name: 'compose' }) : openAuth('register'))}>
                 <Plus className="mr-1.5 h-4 w-4" aria-hidden /> Seal a capsule
@@ -140,6 +146,9 @@ export function FVShell() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate({ name: 'dashboard' })}>
                       <LayoutDashboard className="mr-2 h-4 w-4" /> My vault
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate({ name: 'diary' })}>
+                      <NotebookPen className="mr-2 h-4 w-4" /> Daily diary
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate({ name: 'profile' })}>
                       <UserCircle2 className="mr-2 h-4 w-4" /> Profile
@@ -175,9 +184,14 @@ export function FVShell() {
                   <DropdownMenuItem onClick={() => navigate({ name: 'archive' })}>
                     <Archive className="mr-2 h-4 w-4" /> Archive
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => (session ? navigate({ name: 'dashboard' }) : openAuth('login'))}>
+                  <DropdownMenuItem onClick={() => navigate({ name: 'dashboard' })}>
                     <LayoutDashboard className="mr-2 h-4 w-4" /> My vault
                   </DropdownMenuItem>
+                  {session && (
+                    <DropdownMenuItem onClick={() => navigate({ name: 'diary' })}>
+                      <NotebookPen className="mr-2 h-4 w-4" /> Daily diary
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => (session ? navigate({ name: 'compose' }) : openAuth('register'))}>
                     <Plus className="mr-2 h-4 w-4" /> Seal a capsule
                   </DropdownMenuItem>
@@ -205,6 +219,7 @@ export function FVShell() {
           {view.name === 'edit' && <Compose editId={view.id} />}
           {view.name === 'post' && <PostDetail id={view.id} />}
           {view.name === 'dashboard' && <Dashboard />}
+          {view.name === 'diary' && <Diary />}
           {view.name === 'profile' && <Profile />}
           {view.name === 'admin' && <Admin />}
         </main>

@@ -21,9 +21,11 @@ is live on your own URL. No external database, no cloud services required.
 | **Privacy** | Private (only you) or Public. Public capsules can appear in the searchable **Future Archive** or stay unlisted (link-only) |
 | **Recipients** | Tag: future self, future child, grandchildren, people of 2078, future generations — or a custom name |
 | **Keepers & legacies** | Name up to 10 **keepers** (heirs) per capsule by email, protect it with an optional **family passphrase**, add a private note they'll see on opening. On release day keepers are emailed and can **claim** the capsule from their own **Legacies** tab — it becomes permanently theirs, even if the author is no longer around |
+| **Magic Key** | Skip emails entirely: seal a capsule behind one secret **word, number or phrase** and hand it over on paper like a physical key. When the day comes, the holder opens this site, taps “I have a magic key”, speaks the word — and the message opens right there, **no account, no email needed**. Keys are stored only as an HMAC lookup fingerprint + scrypt hash (never the key itself), wrong guesses reveal nothing, and attempts are rate-limited to 8/hour per IP |
+| **Daily diary** | A private everyday diary: title, mood chip, the day's date — and each entry can be **sealed** with its own release date, hidden from *everyone including you* until then. Sealed content never leaves the server early |
 | **Archive** | Public archive with full-text search, filters by release year / recipient / media type, sorting and pagination |
 | **Accounts** | Register / sign in / sign out with **name + password** (no Google, no third party — accounts live in your database and outlive any tech company), optional recovery email, email verification, password reset (real emails via SMTP; graceful in-UI fallback without), profile with display name & bio, password change |
-| **Vault dashboard** | Manage every capsule: edit, re-seal, change privacy, delete, watch countdowns |
+| **Vault dashboard** | Manage every capsule: edit, re-seal, change privacy, delete, watch countdowns. Magic-key capsules carry a badge, and you can see the moment one was first opened by key |
 | **Interactions** | Minimal, privacy-first "future reactions" (4 signal types, one per visitor per capsule) |
 | **Safety** | Report flow + admin moderation desk (hide/restore, strike, ban) · public capsules are **screened against community standards** before publishing (adult content, hate, threats, scam patterns) · 3 strikes = **automatic ban** (sessions closed, public capsules hidden) · 3 community reports **auto-quarantine** a capsule for review · full member management (search, ban/unban) · **the first registered account becomes the admin** |
 | **Data ownership** | One-click JSON export of your entire account (GDPR-style portability) |
@@ -204,6 +206,36 @@ Seal a capsule for 30 years and name the people who should receive it:
   re-assign keepers at any time (as long as the server is theirs to run).
 - No SMTP? Keepers can still claim from the Legacies tab — email is a
   convenience, not a gate.
+
+### The Magic Key (for grandchildren with no email — or none yet)
+
+The email path assumes your keepers will one day create accounts. The
+**Magic Key** needs nothing at all from them:
+
+1. **While composing**, pick the “A magic key” audience (or add a key beside
+   named keepers). Choose a secret word, number or phrase — something only
+   your people would ever guess — and optionally a **hint**.
+2. After saving, the site shows you the key **once** with a “write it down”
+   reminder. It is stored only as an HMAC fingerprint + scrypt hash; the
+   database can never tell anyone the key.
+3. Write the word on paper and hand it over — an envelope, a will, the
+   family book: *“I have left you a message on Future Voices. Open the site,
+   tap ‘I have a magic key’, and speak the word.”*
+4. On the homepage, “Has something been left for you?” has a second door:
+   **I have a magic key**. A correct key on a still-sealed capsule reveals
+   only the open date and your hint. On the release day the same word opens
+   the whole message — letter, photos, videos — with no account required.
+
+A stolen database contains no keys; wrong guesses reveal nothing; and the
+endpoint is rate-limited (8 tries/hour/IP). Set a long random `APP_SECRET`
+in `.env` to pin the key fingerprints to your installation.
+
+### Daily diary (the little days)
+
+Signed-in members get a **Diary** tab: write a title, pick a mood, record
+the day. Each entry can be **sealed** with its own future date — until that
+day the server refuses to send its content to *anyone, including its author*.
+It reappears exactly when it should: sealed words, opened in their own time.
 
 ### Community standards & moderation
 

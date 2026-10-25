@@ -8,6 +8,7 @@ import {
   parseReleaseDate,
   parseHeirs,
   normalizeEmail,
+  parseMagicKey,
   assertMediaOwnership,
 } from '@/lib/fv-core'
 import { screenText, registerViolation } from '@/lib/moderation'
@@ -108,6 +109,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         notifiedAt: h.notifiedAt,
       }))
       serialized.hasHeirPassphrase = !!post.heirPassHash
+      // magic-key status is the author's business
+      serialized.magicKeyHint = post.magicKeyHint
+      serialized.magicKeyOpenedAt = post.magicKeyOpenedAt
     }
     serialized.viewerIsKeeper = !!myHeirRow
 
@@ -205,6 +209,33 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       data.heirPassHash = null
     }
 
+    // ── Magic Key management (author only) ──
+    if (body.magicKey !== undefined) {
+      const mk = String(body.magicKey ?? '').trim()
+      if (!mk) {
+        // empty string removes the key entirely
+        data.magicKeyHash = null
+        data.magicKeyLookup = null
+        data.magicKeyHint = null
+        data.magicKeyOpenedAt = null
+      } else {
+        const hint = String(body.magicKeyHint ?? '').trim() || null
+        if (hint && hint.length > 200) {
+          throw new HttpError(400, 'The hint for your magic key is limited to 200 characters.')
+        }
+        const parsed = parseMagicKey(mk)
+        data.magicKeyHash = hashPassword(parsed.normalized)
+        data.magicKeyLookup = parsed.lookup
+        data.magicKeyHint = hint
+      }
+    } else if (body.magicKeyHint !== undefined && existing.magicKeyHash) {
+      const hint = String(body.magicKeyHint ?? '').trim() || null
+      if (hint && hint.length > 200) {
+        throw new HttpError(400, 'The hint for your magic key is limited to 200 characters.')
+      }
+      data.magicKeyHint = hint
+    }
+
     // ── Community standards: screen whatever would be (or stay) public ──
     const nextPrivacy = (data.privacy as string | undefined) ?? existing.privacy
     if (nextPrivacy === 'PUBLIC') {
@@ -244,6 +275,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       notifiedAt: h.notifiedAt,
     }))
     serialized.hasHeirPassphrase = !!post.heirPassHash
+    // the author may see the hint and whether the key has been used
+    serialized.magicKeyHint = post.magicKeyHint
+    serialized.magicKeyOpenedAt = post.magicKeyOpenedAt
 
     return NextResponse.json({ post: serialized })
   } catch (e) {

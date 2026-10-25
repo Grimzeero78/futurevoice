@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
     const serialized = posts.map((p) => ({
       ...serializePost(p, { sealedOverride: isSealed(p) }),
       reportCount: 0,
+      // the author sees their own magic-key status
+      magicKeyHint: p.magicKeyHint,
+      magicKeyOpenedAt: p.magicKeyOpenedAt,
     }))
 
     const summary = {
