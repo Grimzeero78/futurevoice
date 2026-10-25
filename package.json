@@ -12,7 +12,7 @@
     "dev": "next dev",
     "prestart": "prisma db push --skip-generate --accept-data-loss",
     "start": "next start",
-    "build": "next build",
+    "build": "opennextjs-cloudflare build",
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "db:push": "prisma db push",
