@@ -476,12 +476,12 @@ export function Landing() {
         <div className="mx-auto max-w-6xl px-4 py-16">
           <motion.div {...fadeUp} className="mb-10 text-center">
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-              <ImageIcon className="h-3.5 w-3.5" aria-hidden /> Real screenshots — no mockups
+              <ImageIcon className="h-3.5 w-3.5" aria-hidden /> Real photographs — every step
             </span>
             <h2 className="font-display text-3xl font-bold sm:text-4xl">See exactly how it&apos;s done.</h2>
             <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
               Four steps, about ten minutes — and a message that outlives us all.
-              This is the actual form your grandchildren will thank you for filling.
+              The same steps your grandchildren will thank you for taking.
             </p>
           </motion.div>
 
