@@ -118,8 +118,11 @@ export function screenText(parts: Array<string | null | undefined>, context = 'c
 
 // ─── Strikes & bans ──────────────────────────────────────────────
 
-export const BAN_THRESHOLD = Number(process.env.MODERATION_BAN_THRESHOLD ?? 3)
-export const AUTO_HIDE_REPORTS = Number(process.env.MODERATION_AUTO_HIDE_REPORTS ?? 3)
+import { env } from '@/lib/env'
+
+// read lazily so Cloudflare bindings count too (module init has no request context)
+export const BAN_THRESHOLD = () => Number(env('MODERATION_BAN_THRESHOLD') ?? 3)
+export const AUTO_HIDE_REPORTS = () => Number(env('MODERATION_AUTO_HIDE_REPORTS') ?? 3)
 
 export const BAN_MESSAGE =
   'Your account has been banned for repeatedly violating the Future Voices community standards.'
@@ -145,8 +148,8 @@ export async function registerViolation(userId: string, reason: string): Promise
     return { violations: user.violations, banned: false }
   }
 
-  if (user.violations >= BAN_THRESHOLD) {
-    await banUser(userId, `Automatic ban — ${BAN_THRESHOLD} community-standards violations. Last one: ${reason}`)
+  if (user.violations >= BAN_THRESHOLD()) {
+    await banUser(userId, `Automatic ban — ${BAN_THRESHOLD()} community-standards violations. Last one: ${reason}`)
     return { violations: user.violations, banned: true }
   }
   return { violations: user.violations, banned: false }

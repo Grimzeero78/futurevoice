@@ -8,7 +8,7 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   try {
     // brute-force guard on token guessing: 20 attempts / hour / IP
-    rateLimitByIp(req, 'reset', 20, 60 * 60 * 1000)
+    await rateLimitByIp(req, 'reset', 20, 60 * 60 * 1000)
     const body = await req.json().catch(() => ({}))
     const token = String(body.token ?? '').trim()
     const password = String(body.password ?? '')

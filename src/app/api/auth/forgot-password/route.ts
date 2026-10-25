@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   try {
     // enumeration + flood guard: 10 requests / hour / IP
-    rateLimitByIp(req, 'forgot', 10, 60 * 60 * 1000)
+    await rateLimitByIp(req, 'forgot', 10, 60 * 60 * 1000)
 
     const body = await req.json().catch(() => ({}))
     const email = String(body.email ?? '').trim().toLowerCase()

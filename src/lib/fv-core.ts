@@ -1,3 +1,4 @@
+import { env } from '@/lib/env'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { db } from '@/lib/db'
 import { HttpError } from '@/lib/auth'
@@ -198,7 +199,7 @@ export const MAGIC_KEY_MAX = 200
 function magicSecret(): string {
   // Stable per installation. APP_SECRET is the documented knob; the
   // DATABASE_URL fallback keeps zero-config self-hosts working.
-  return process.env.APP_SECRET || process.env.DATABASE_URL || 'future-voices-local-fallback'
+  return env('APP_SECRET') || env('DATABASE_URL') || 'future-voices-local-fallback'
 }
 
 /** Keys match case-insensitively with collapsed whitespace. */

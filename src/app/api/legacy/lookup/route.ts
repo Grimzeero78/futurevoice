@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { errorResponse, HttpError } from '@/lib/auth'
 import { isSealed } from '@/lib/fv-core'
+import { rateLimit as rateLimitShared } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,25 +20,12 @@ export const dynamic = 'force-dynamic'
  * Rate-limited in memory per IP to stop brute-force email enumeration.
  */
 
-const hits = new Map<string, { n: number; reset: number }>()
 const LIMIT = 30
 const WINDOW_MS = 60 * 60 * 1000
 
-function rateLimit(ip: string) {
-  const now = Date.now()
-  const rec = hits.get(ip)
-  if (!rec || rec.reset < now) {
-    hits.set(ip, { n: 1, reset: now + WINDOW_MS })
-    return
-  }
-  if (rec.n >= LIMIT) {
-    throw new HttpError(429, 'Too many checks from this connection — please try again in a little while.')
-  }
-  rec.n += 1
-  // opportunistic cleanup so the map cannot grow unbounded
-  if (hits.size > 5000) {
-    for (const [k, v] of hits) if (v.reset < now) hits.delete(k)
-  }
+// database-backed so the limit survives Workers isolate restarts
+async function rateLimit(ip: string) {
+  await rateLimitShared(`lookup:${ip}`, LIMIT, WINDOW_MS)
 }
 
 export async function POST(req: NextRequest) {
@@ -49,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local'
-    rateLimit(ip)
+    await rateLimit(ip)
 
     const rows = await db.heir.findMany({
       where: { email, post: { hidden: false } },

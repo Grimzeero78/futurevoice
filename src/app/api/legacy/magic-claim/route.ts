@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Nobody honestly mistypes a family phrase eight times in an hour.
-    rateLimitByIp(req, 'magic-claim', 8, 60 * 60 * 1000)
+    await rateLimitByIp(req, 'magic-claim', 8, 60 * 60 * 1000)
 
     const lookup = magicKeyLookup(normalized)
     const posts = await db.post.findMany({

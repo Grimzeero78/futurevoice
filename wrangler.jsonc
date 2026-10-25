@@ -1,0 +1,45 @@
+// ─── Future Voices on Cloudflare (Workers + D1 + R2) ─────────────
+//
+// Used by: npm run cf:build / cf:preview / cf:deploy  (see CLOUDFLARE.md)
+//
+// ONE thing you must change before deploying: create your D1 database
+//   npx wrangler d1 create futurevoice
+// and paste its database_id below. Everything else works as-is.
+
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "futurevoice",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "futurevoice",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "futurevoice-uploads"
+    }
+  ],
+  "vars": {
+    // Public URL of the deployment — used in emails and secure-cookie logic.
+    // Replace <your-subdomain> with the one shown after `npm run cf:deploy`.
+    "APP_URL": "https://futurevoice.<your-subdomain>.workers.dev"
+    // Optional knobs (defaults shown):
+    // "MODERATION_BAN_THRESHOLD": "3",
+    // "MODERATION_AUTO_HIDE_REPORTS": "3",
+    // "CRON_SECRET": "set-me-and-call-/api/cron?key=... daily"
+  }
+  // Secrets (never in this file) — set once with:
+  //   npx wrangler secret put APP_SECRET
+  //   npx wrangler secret put RESEND_API_KEY      (or BREVO_API_KEY)
+  //   npx wrangler secret put MAIL_FROM           e.g. "Future Voices <you@yourdomain>"
+}

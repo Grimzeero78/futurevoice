@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser(req)
-    rateLimitByIp(req, 'resend-verify', 5, 60 * 60 * 1000)
+    await rateLimitByIp(req, 'resend-verify', 5, 60 * 60 * 1000)
 
     if (user.emailVerified) {
       return NextResponse.json({ ok: true, alreadyVerified: true, message: 'Your email is already verified.' })

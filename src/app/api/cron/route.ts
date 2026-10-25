@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { unlockDuePosts, startScheduler } from '@/lib/scheduler'
+import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic'
  * capsules whose release date has genuinely arrived).
  */
 function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
+  const secret = env('CRON_SECRET')
   if (!secret) return true
   return req.nextUrl.searchParams.get('key') === secret
 }

@@ -95,7 +95,25 @@ pm2 save && pm2 startup      # restarts on reboot
 
 ## Deploy on your own URL
 
-### Option A — Docker (easiest)
+### Option A — Cloudflare free hosting ($0, no card, ~15 min)
+
+Full-stack on Cloudflare Workers + D1 + R2 from this repo — see
+**[CLOUDFLARE.md](CLOUDFLARE.md)** for the step-by-step Windows/PowerShell
+guide. Short version:
+
+```bash
+npx wrangler login
+npx wrangler d1 create futurevoice          # paste database_id into wrangler.jsonc
+npx wrangler r2 bucket create futurevoice-uploads
+npm run cf:migrate:remote
+npx wrangler secret put APP_SECRET
+npm run cf:deploy                           # → https://futurevoice.<you>.workers.dev
+```
+
+First account registered = admin. Email delivery on Cloudflare uses the
+Resend or Brevo HTTP API (free tiers) — add the key as a secret when ready.
+
+### Option B — Docker (self-host, no size limits)
 
 ```bash
 docker compose up -d --build
@@ -106,7 +124,7 @@ That's it. Database and uploads persist in the `fv-data` volume. Set
 to enable real emails. To serve on port 80/443 with a domain, put a reverse
 proxy in front (below).
 
-### Option B — bare Node on a VPS
+### Option C — bare Node on a VPS
 
 1. Copy this whole folder to the server (e.g. `git clone` or scp).
 2. `npm install && npm run db:push && npm run build`

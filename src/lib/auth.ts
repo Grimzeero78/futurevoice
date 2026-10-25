@@ -1,6 +1,7 @@
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
+import { env } from '@/lib/env'
 
 export const SESSION_COOKIE = 'fv_session'
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 days
@@ -191,7 +192,7 @@ export function sessionCookieOptions(expiresAt: Date) {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: (process.env.APP_URL ?? '').startsWith('https://'),
+    secure: (env('APP_URL') ?? '').startsWith('https://'),
     path: '/',
     expires: expiresAt,
   }

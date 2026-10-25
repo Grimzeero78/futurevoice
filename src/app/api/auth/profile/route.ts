@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireUser(req)
     // guard against in-session brute force of the current password
-    rateLimitByIp(req, 'pwchange', 10, 60 * 60 * 1000)
+    await rateLimitByIp(req, 'pwchange', 10, 60 * 60 * 1000)
 
     const body = await req.json().catch(() => ({}))
     const currentPassword = String(body.currentPassword ?? '')

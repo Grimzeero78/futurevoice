@@ -9,6 +9,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Prisma client must stay OUT of the server bundle: OpenNext patches the
+  // generated client for Cloudflare Workers during `cf:build`, which only
+  // works on the un-bundled package (see opennext.js.org/cloudflare/howtos/db)
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,

@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // capsule from the archive immediately; the admin desk reviews it. ──
     let quarantined = false
     const openReports = await db.report.count({ where: { postId: id, status: 'OPEN' } })
-    if (openReports >= AUTO_HIDE_REPORTS && !post.hidden) {
+    if (openReports >= AUTO_HIDE_REPORTS() && !post.hidden) {
       await db.post.update({
         where: { id },
         data: {

@@ -1,7 +1,11 @@
 # ─── Future Voices — production image ─────────────────────────────
 FROM node:22-alpine
 
-# sqlite + openssl live in the base image; add nothing fancy.
+# better-sqlite3 (Prisma's local SQLite adapter) has no musl prebuild —
+# compile it during npm install instead.
+RUN apk add --no-cache python3 make g++
+
+# openssl lives in the base image; add nothing else fancy.
 WORKDIR /app
 
 # Persistent data (database + uploaded media) lives in /data.

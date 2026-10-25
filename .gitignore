@@ -47,3 +47,7 @@ Thumbs.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cloudflare build artifacts (local)
+.open-next/
+.wrangler/

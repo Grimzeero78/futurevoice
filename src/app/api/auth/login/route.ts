@@ -17,7 +17,7 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   try {
     // flood guard BEFORE any expensive scrypt work: 15 attempts / 15 min / IP
-    rateLimitByIp(req, 'login', 15, 15 * 60 * 1000)
+    await rateLimitByIp(req, 'login', 15, 15 * 60 * 1000)
 
     const body = await req.json().catch(() => ({}))
     const identifier = String(body.name ?? body.identifier ?? '').trim().toLowerCase()

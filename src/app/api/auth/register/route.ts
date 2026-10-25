@@ -24,7 +24,7 @@ const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M}\s\d.'\-_]{1,39}$/u // 2–40 chars, st
 export async function POST(req: NextRequest) {
   try {
     // flood guard: 5 sign-ups per hour per IP
-    rateLimitByIp(req, 'register', 5, 60 * 60 * 1000)
+    await rateLimitByIp(req, 'register', 5, 60 * 60 * 1000)
 
     const body = await req.json().catch(() => ({}))
     const rawName = String(body.name ?? '').trim().replace(/\s+/g, ' ')

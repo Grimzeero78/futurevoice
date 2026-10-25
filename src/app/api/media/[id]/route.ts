@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Readable } from 'stream'
 import { db } from '@/lib/db'
 import { getCurrentUser, errorResponse } from '@/lib/auth'
-import { assertInsideUploadDir, fileSize, openRange, deleteStorageFile } from '@/lib/storage'
+import { fileSize, readRange, deleteStorageFile } from '@/lib/storage'
 import { isSealed, verifyMagicGrant } from '@/lib/fv-core'
 
 export const runtime = 'nodejs'
@@ -74,7 +73,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       return NextResponse.json({ error: 'This file is not available.' }, { status: 403 })
     }
 
-    const filePath = assertInsideUploadDir(media.storagePath)
+    const filePath = media.storagePath
     const size = await fileSize(filePath)
 
     const privateAccess = (isOwner && !media.post) || (!!media.post && !isOwner) || magicUnlocked
@@ -106,11 +105,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
             headers: { 'Content-Range': `bytes */${size}` },
           })
         }
-        const nodeStream = openRange(filePath, start, end)
+        const body = await readRange(filePath, start, end)
         const headers = new Headers(baseHeaders)
         headers.set('Content-Range', `bytes ${start}-${end}/${size}`)
         headers.set('Content-Length', String(end - start + 1))
-        return new NextResponse(Readable.toWeb(nodeStream) as ReadableStream, {
+        return new NextResponse(body, {
           status: 206,
           headers,
         })
@@ -119,7 +118,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const headers = new Headers(baseHeaders)
     headers.set('Content-Length', String(size))
-    return new NextResponse(Readable.toWeb(openRange(filePath, 0, size - 1)) as ReadableStream, {
+    return new NextResponse(await readRange(filePath, 0, size - 1), {
       status: 200,
       headers,
     })
@@ -160,8 +159,7 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
       !isSealed(media.post)
     if (!isOwner && !publiclyVisible && !heirUnlocked && !magicUnlocked) return new NextResponse(null, { status: 403 })
 
-    const filePath = assertInsideUploadDir(media.storagePath)
-    const size = await fileSize(filePath)
+    const size = await fileSize(media.storagePath)
     return new NextResponse(null, {
       status: 200,
       headers: new Headers({

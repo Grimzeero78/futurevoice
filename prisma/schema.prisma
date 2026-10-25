@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"] // required by @opennextjs/cloudflare — it patches the client for Workers during cf:build
 }
 
 datasource db {
@@ -165,4 +166,14 @@ model Report {
   status     String    @default("OPEN") // OPEN | RESOLVED
   resolvedAt DateTime?
   createdAt  DateTime  @default(now())
+}
+
+// Sliding-window rate limiting, stored in the database instead of memory so
+// it survives Cloudflare Workers isolate restarts (and works on self-host too).
+model RateLimitHit {
+  id  String   @id @default(cuid())
+  key String // e.g. "login:1.2.3.4"
+  ts  DateTime @default(now())
+
+  @@index([key, ts])
 }
