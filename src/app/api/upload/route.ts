@@ -9,7 +9,13 @@ import {
   randomStorageName,
   saveStream,
   discardPartial,
+  userMediaQuotaBytes,
 } from '@/lib/storage'
+
+function mb(n: number): string {
+  if (n >= 1024 * 1024 * 1024) return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  return `${Math.max(1, Math.round(n / (1024 * 1024)))} MB`
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -42,6 +48,18 @@ export async function POST(req: NextRequest) {
     if (!contentType.includes('multipart/form-data')) {
       throw new HttpError(400, 'Expected a multipart/form-data upload.')
     }
+
+    // Per-account media quota: what this user already holds decides the room left.
+    const quota = userMediaQuotaBytes()
+    const usedAgg = await db.media.aggregate({ _sum: { size: true }, where: { ownerId: user.id } })
+    const used = usedAgg._sum.size ?? 0
+    if (used >= quota) {
+      throw new HttpError(
+        413,
+        `Your media locker is full — this account holds ${mb(used)} of the ${mb(quota)} allowed here. Remove an old file from a capsule you can still edit, or move the deployment to R2 storage for 5 GB per account (CLOUDFLARE.md → "Photos & videos").`,
+      )
+    }
+    const remaining = quota - used
 
     const busboy = Busboy({
       headers: { 'content-type': contentType },
@@ -83,6 +101,10 @@ export async function POST(req: NextRequest) {
               if (settled) return
               if (size === 0) {
                 fail(new HttpError(400, 'The file appears to be empty.'))
+                return
+              }
+              if (size > remaining) {
+                fail(new HttpError(413, `That file needs ${mb(size)}, but only ${mb(remaining)} of your ${mb(quota)} media space is left.`))
                 return
               }
               return db.media

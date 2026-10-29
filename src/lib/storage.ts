@@ -37,6 +37,11 @@ const R2_MAX_BYTES = 90 * 1024 * 1024
 const D1_MAX_BYTES = 48 * 1024 * 1024
 const D1_CHUNK_SIZE = 64 * 1024
 
+const FIVE_GB = 5 * 1024 * 1024 * 1024
+/** Free D1 pool holds ~500 MB for the WHOLE deployment (app rows included) —
+ *  so a per-account share that lets several keepers use the same database. */
+const D1_USER_QUOTA = 250 * 1024 * 1024
+
 export const IMAGE_TYPES: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -83,6 +88,16 @@ export function randomStorageName(ext: string): string {
 export function maxUploadBytes(): number {
   if (!onCloudflare()) return Number.POSITIVE_INFINITY
   return r2Binding() ? R2_MAX_BYTES : D1_MAX_BYTES
+}
+
+/**
+ * Total media each account may hold. 5 GB per user wherever the platform
+ * can actually carry it (self-host disk, R2 bucket); a smaller share on the
+ * free D1 pool, which caps the whole deployment at ~500 MB.
+ */
+export function userMediaQuotaBytes(): number {
+  if (!onCloudflare()) return FIVE_GB
+  return r2Binding() ? FIVE_GB : D1_USER_QUOTA
 }
 
 // ─── R2 backend ──────────────────────────────────────────────────
