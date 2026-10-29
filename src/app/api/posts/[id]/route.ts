@@ -21,6 +21,18 @@ const postInclude = {
   _count: { select: { reactions: true } },
 } as const
 
+function fmtSealDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+/** A capsule whose release date is still in the future is SEALED — frozen for everyone. */
+function sealError(releaseAt: Date, deleting: boolean): HttpError {
+  const what = deleting
+    ? 'Sealed capsules cannot be deleted — that is the promise of a time capsule. Come back when it opens.'
+    : 'Sealed means sealed: nothing on it can be changed until it opens. That is the promise of a time capsule.'
+  return new HttpError(403, `This capsule is sealed until ${fmtSealDate(releaseAt)}. ${what}`)
+}
+
 // ─── Post detail (with strict access control) ────────────────────
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -92,6 +104,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const existing = await db.post.findUnique({ where: { id }, include: { media: true } })
     if (!existing || existing.authorId !== user.id) {
       return NextResponse.json({ error: 'Capsule not found.' }, { status: 404 })
+    }
+    if (existing.releaseAt && existing.releaseAt > new Date()) {
+      throw sealError(existing.releaseAt, false)
     }
 
     const body = await req.json().catch(() => ({}))
@@ -215,6 +230,9 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     const existing = await db.post.findUnique({ where: { id }, include: { media: true } })
     if (!existing || existing.authorId !== user.id) {
       return NextResponse.json({ error: 'Capsule not found.' }, { status: 404 })
+    }
+    if (existing.releaseAt && existing.releaseAt > new Date()) {
+      throw sealError(existing.releaseAt, true)
     }
 
     await db.post.delete({ where: { id } })

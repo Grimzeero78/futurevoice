@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { unlockDuePosts, startScheduler } from '@/lib/scheduler'
+import { startScheduler, schedulerTick } from '@/lib/scheduler'
 import { env } from '@/lib/env'
 
 export const runtime = 'nodejs'
@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: 'Invalid cron key.' }, { status: 401 })
   }
-  const unsealed = await unlockDuePosts()
-  return NextResponse.json({ ok: true, unsealed, checkedAt: new Date().toISOString() })
+  const { unsealed, announced } = await schedulerTick()
+  return NextResponse.json({ ok: true, unsealed, announced, checkedAt: new Date().toISOString() })
 }
 
 export async function POST(req: NextRequest) {
@@ -35,6 +35,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid cron key.' }, { status: 401 })
   }
   startScheduler()
-  const unsealed = await unlockDuePosts()
-  return NextResponse.json({ ok: true, unsealed, checkedAt: new Date().toISOString() })
+  const { unsealed, announced } = await schedulerTick()
+  return NextResponse.json({ ok: true, unsealed, announced, checkedAt: new Date().toISOString() })
 }

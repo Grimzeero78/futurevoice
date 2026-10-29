@@ -1,13 +1,19 @@
 import type { Readable } from 'stream'
 import { HttpError } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { env, onCloudflare } from '@/lib/env'
 
 /**
- * Storage layer — two interchangeable backends behind one API:
+ * Storage layer — three interchangeable backends behind one API:
  *
- *  - Cloudflare Workers: R2 bucket (binding `UPLOADS`). Objects are stored
- *    under a plain key (the file's base name). Range reads map to R2's
- *    native range queries.
+ *  - Cloudflare Workers + R2 binding (`UPLOADS`): objects stored under a
+ *    plain key. Range reads map to R2's native range queries. The premium
+ *    path — needs R2 activated on the Cloudflare account.
+ *  - Cloudflare Workers without R2: files live INSIDE the D1 database as
+ *    fixed-size chunks (MediaChunk table). Works on the free tier with zero
+ *    extra setup — uploads simply work. Range reads fetch exactly the
+ *    chunks needed, so video seeking still works. Capped per file because
+ *    the free database pool is finite.
  *  - Self-hosted Node (Windows / Linux / Docker): streamed straight to the
  *    directory behind UPLOAD_DIR (never fully buffered in memory), with
  *    byte-range reads. No practical size limit.
@@ -16,12 +22,20 @@ import { env, onCloudflare } from '@/lib/env'
  * access-checked media gateway.
  *
  * DB note: historical self-host rows store an ABSOLUTE path; new rows store
- * a plain file name. The local backend accepts both; the R2 backend uses
- * the base name as the object key.
+ * a plain file name. The local backend accepts both; the R2 and D1 backends
+ * use the base name as the object key / chunk grouping.
  */
 
-/** Cloudflare free-tier request bodies cap around 100 MB; stay safely under. */
+/** R2 path: Cloudflare free-tier request bodies cap around 100 MB. */
 const R2_MAX_BYTES = 90 * 1024 * 1024
+
+/**
+ * D1 path: free Cloudflare databases hold ~500 MB in total, so keep each
+ * file well inside what one video should cost the pool. 64 KB chunks keep
+ * every write comfortably small; a 48 MB file = 768 chunk rows.
+ */
+const D1_MAX_BYTES = 48 * 1024 * 1024
+const D1_CHUNK_SIZE = 64 * 1024
 
 export const IMAGE_TYPES: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -65,6 +79,12 @@ export function randomStorageName(ext: string): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}${ext}`
 }
 
+/** Per-file upload cap in bytes for the CURRENT deployment (Infinity = none). */
+export function maxUploadBytes(): number {
+  if (!onCloudflare()) return Number.POSITIVE_INFINITY
+  return r2Binding() ? R2_MAX_BYTES : D1_MAX_BYTES
+}
+
 // ─── R2 backend ──────────────────────────────────────────────────
 
 type R2Bucket = {
@@ -77,25 +97,26 @@ type R2Bucket = {
   delete: (key: string) => Promise<void>
 }
 
-function r2(): R2Bucket {
-  if (!onCloudflare()) throw new HttpError(500, 'R2 storage is not available on this deployment.')
+/** Returns the R2 binding, or null when this deployment has none. */
+function r2Binding(): R2Bucket | null {
+  if (!onCloudflare()) return null
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { getCloudflareContext } = require('@opennextjs/cloudflare') as {
-      getCloudflareContext: () => { env: { UPLOADS: R2Bucket } }
+      getCloudflareContext: () => { env: { UPLOADS?: R2Bucket } }
     }
-    const bucket = getCloudflareContext().env.UPLOADS
-    if (!bucket) {
-      throw new HttpError(
-        503,
-        'Media storage is not connected on this deployment yet — photos, videos and audio are switched off. Text capsules, magic keys and the diary work fine. To enable media, see CLOUDFLARE.md → "Photos & videos" (R2).',
-      )
-    }
-    return bucket
-  } catch (e) {
-    if (e instanceof HttpError) throw e
-    throw new HttpError(500, 'Storage is not reachable on this deployment.')
+    return getCloudflareContext().env.UPLOADS ?? null
+  } catch {
+    return null
   }
+}
+
+function r2(): R2Bucket {
+  const bucket = r2Binding()
+  if (!bucket) {
+    throw new HttpError(500, 'R2 storage is not available on this deployment.')
+  }
+  return bucket
 }
 
 function r2Key(storagePath: string): string {
@@ -103,6 +124,62 @@ function r2Key(storagePath: string): string {
   const key = parts[parts.length - 1]
   if (!key || key === '.' || key === '..') throw new HttpError(400, 'Invalid storage path.')
   return key
+}
+
+// ─── D1 backend (files as chunks inside the database) ────────────
+
+function assertStoragePath(storagePath: string): string {
+  const parts = storagePath.split('/')
+  const key = parts[parts.length - 1]
+  if (!key || key === '.' || key === '..' || key.includes('\\') || key.includes('..')) {
+    throw new HttpError(400, 'Invalid storage path.')
+  }
+  return key
+}
+
+function storageWriteError(e: unknown): HttpError {
+  const msg = e instanceof Error ? e.message : String(e)
+  if (/full|quota|space| diskspace |too many/i.test(msg)) {
+    return new HttpError(
+      503,
+      'Media storage is full on this deployment — the free Cloudflare database holds about 500 MB in total. Remove some old files, or connect an R2 bucket for 10 GB more (CLOUDFLARE.md → "Photos & videos").',
+    )
+  }
+  return new HttpError(503, 'Media storage could not be written on this deployment. Please try again.')
+}
+
+function concatChunks(parts: Uint8Array[], total: number): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const p of parts) {
+    out.set(p, offset)
+    offset += p.byteLength
+  }
+  return out
+}
+
+function streamOf(buf: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(buf)
+      controller.close()
+    },
+  })
+}
+
+async function d1SaveBuffer(buffer: Uint8Array<ArrayBuffer>, storagePath: string): Promise<void> {
+  const key = assertStoragePath(storagePath)
+  try {
+    for (let seq = 0, offset = 0; offset < buffer.byteLength; seq++, offset += D1_CHUNK_SIZE) {
+      const chunk = buffer.subarray(offset, Math.min(offset + D1_CHUNK_SIZE, buffer.byteLength))
+      await db.mediaChunk.create({
+        data: { storagePath: key, seq, size: chunk.byteLength, data: chunk },
+      })
+    }
+  } catch (e) {
+    await db.mediaChunk.deleteMany({ where: { storagePath: key } }).catch(() => {})
+    throw storageWriteError(e)
+  }
 }
 
 // ─── Local backend (lazy fs — never imported on Cloudflare) ──────
@@ -138,59 +215,117 @@ async function localPath(storagePath: string): Promise<string> {
 
 /** Small files (or callers that already hold a buffer) */
 export async function saveBuffer(buffer: Buffer | Uint8Array, storagePath: string): Promise<void> {
+  const bytes = new Uint8Array(buffer) // copy into a plain ArrayBuffer-backed view
   if (onCloudflare()) {
-    if (buffer.byteLength > R2_MAX_BYTES) throw new HttpError(413, 'File is too large for Cloudflare hosting (90 MB limit).')
-    await r2().put(r2Key(storagePath), new Uint8Array(buffer))
+    const cap = maxUploadBytes()
+    if (bytes.byteLength > cap) {
+      throw new HttpError(413, `File is too large for this deployment (limit: ${Math.floor(cap / (1024 * 1024))} MB).`)
+    }
+    const bucket = r2Binding()
+    if (bucket) {
+      await bucket.put(r2Key(storagePath), bytes)
+      return
+    }
+    await d1SaveBuffer(bytes, storagePath)
     return
   }
   const fs = (await import('fs/promises')) as FsPromises
   const path = await import('path')
   const target = await localPath(storagePath)
   await fs.mkdir(path.dirname(target), { recursive: true })
-  await fs.writeFile(target, buffer)
+  await fs.writeFile(target, bytes)
 }
 
 /**
  * Stream any readable source (web ReadableStream from a fetch body, or a
- * Node Readable such as busboy file parts) to storage with no size limit
- * on self-host. On Cloudflare the stream is accumulated under the 90 MB
- * cap and put to R2 (R2 requires a known length for streamed puts).
- * Returns the number of bytes written.
+ * Node Readable such as busboy file parts) to storage. On self-host there
+ * is no size limit and nothing large is buffered. On Cloudflare the stream
+ * is written chunk-by-chunk (D1) or accumulated under the cap (R2, which
+ * requires a known length for streamed puts). Returns bytes written.
  */
 export async function saveStream(
   stream: Readable | ReadableStream<Uint8Array>,
   storagePath: string,
 ): Promise<number> {
-  // Normalize: R2 path needs a WEB stream; busboy hands us Node streams.
+  // Normalize: we always read a WEB stream; busboy hands us Node streams.
   const web: ReadableStream<Uint8Array> =
     typeof (stream as ReadableStream<Uint8Array>).getReader === 'function'
       ? (stream as ReadableStream<Uint8Array>)
       : (await import('stream')).Readable.toWeb(stream as Readable) as ReadableStream<Uint8Array>
+
+  const cap = maxUploadBytes()
+  const reader = web.getReader()
+
   if (onCloudflare()) {
-    const chunks: Uint8Array[] = []
-    let bytes = 0
-    const reader = web.getReader()
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (!value) continue
-      bytes += value.byteLength
-      if (bytes > R2_MAX_BYTES) {
-        await reader.cancel().catch(() => {})
-        throw new HttpError(413, 'File is too large for Cloudflare hosting (90 MB limit). Self-hosted mode has no limit.')
+    const key = assertStoragePath(storagePath)
+    const bucket = r2Binding()
+    try {
+      if (bucket) {
+        // R2 wants one put with the whole body — accumulate under the cap.
+        const chunks: Uint8Array[] = []
+        let bytes = 0
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (!value) continue
+          bytes += value.byteLength
+          if (bytes > cap) throw new HttpError(413, `File is too large for this deployment (limit: ${Math.floor(cap / (1024 * 1024))} MB). Self-hosted Future Voices has no limit.`)
+          chunks.push(value)
+        }
+        if (bytes === 0) return 0
+        await bucket.put(r2Key(storagePath), concatChunks(chunks, bytes))
+        return bytes
       }
-      chunks.push(value)
+      // D1: write chunk-by-chunk as the bytes arrive — nothing large is buffered.
+      let seq = 0
+      let pending: Uint8Array[] = []
+      let pendingBytes = 0
+      let total = 0
+      const flush = async () => {
+        if (pendingBytes === 0) return
+        const chunk = concatChunks(pending, pendingBytes)
+        await db.mediaChunk.create({
+          data: { storagePath: key, seq, size: chunk.byteLength, data: chunk },
+        })
+        seq += 1
+        pending = []
+        pendingBytes = 0
+      }
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+        total += value.byteLength
+        if (total > cap) {
+          throw new HttpError(413, `File is too large for this deployment (limit: ${Math.floor(cap / (1024 * 1024))} MB). Self-hosted Future Voices has no limit.`)
+        }
+        let slice = value
+        while (slice.byteLength > 0) {
+          const room = D1_CHUNK_SIZE - pendingBytes
+          if (slice.byteLength <= room) {
+            pending.push(slice)
+            pendingBytes += slice.byteLength
+            slice = new Uint8Array(0)
+          } else {
+            pending.push(slice.subarray(0, room))
+            pendingBytes += room
+            slice = slice.subarray(room)
+            await flush()
+          }
+        }
+      }
+      await flush()
+      return total
+    } catch (e) {
+      if (e instanceof HttpError) {
+        await db.mediaChunk.deleteMany({ where: { storagePath: key } }).catch(() => {})
+        throw e
+      }
+      await db.mediaChunk.deleteMany({ where: { storagePath: key } }).catch(() => {})
+      throw storageWriteError(e)
     }
-    if (bytes === 0) return 0
-    const merged = new Uint8Array(bytes)
-    let offset = 0
-    for (const c of chunks) {
-      merged.set(c, offset)
-      offset += c.byteLength
-    }
-    await r2().put(r2Key(storagePath), merged)
-    return bytes
   }
+
   // Self-host: stream chunk-by-chunk to disk, nothing large is buffered.
   const fsMod = await import('fs')
   const { Readable: ReadableClass } = await import('stream')
@@ -213,9 +348,17 @@ export async function saveStream(
 
 export async function fileSize(storagePath: string): Promise<number> {
   if (onCloudflare()) {
-    const obj = await r2().head(r2Key(storagePath))
-    if (!obj) throw new HttpError(404, 'File not found.')
-    return obj.size
+    const bucket = r2Binding()
+    if (bucket) {
+      const obj = await bucket.head(r2Key(storagePath))
+      if (!obj) throw new HttpError(404, 'File not found.')
+      return obj.size
+    }
+    const key = assertStoragePath(storagePath)
+    const agg = await db.mediaChunk.aggregate({ _sum: { size: true }, where: { storagePath: key } })
+    const size = agg._sum.size ?? 0
+    if (size === 0) throw new HttpError(404, 'File not found.')
+    return size
   }
   const fs = (await import('fs/promises')) as FsPromises
   const target = await localPath(storagePath)
@@ -235,9 +378,32 @@ export async function readRange(
   end: number,
 ): Promise<ReadableStream<Uint8Array>> {
   if (onCloudflare()) {
-    const obj = await r2().get(r2Key(storagePath), { range: { offset: start, length: end - start + 1 } })
-    if (!obj) throw new HttpError(404, 'File not found.')
-    return obj.body
+    const bucket = r2Binding()
+    if (bucket) {
+      const obj = await bucket.get(r2Key(storagePath), { range: { offset: start, length: end - start + 1 } })
+      if (!obj) throw new HttpError(404, 'File not found.')
+      return obj.body
+    }
+    const key = assertStoragePath(storagePath)
+    const first = Math.floor(start / D1_CHUNK_SIZE)
+    const last = Math.floor(end / D1_CHUNK_SIZE)
+    const rows = await db.mediaChunk.findMany({
+      where: { storagePath: key, seq: { gte: first, lte: last } },
+      orderBy: { seq: 'asc' },
+      select: { seq: true, size: true, data: true },
+    })
+    if (rows.length === 0) throw new HttpError(404, 'File not found.')
+    rows.sort((a, b) => a.seq - b.seq)
+    const parts: Uint8Array[] = []
+    let total = 0
+    for (const r of rows) {
+      parts.push(new Uint8Array(r.data as Uint8Array))
+      total += r.size
+    }
+    const joined = concatChunks(parts, total)
+    const startOffset = start - first * D1_CHUNK_SIZE
+    const length = end - start + 1
+    return streamOf(joined.subarray(startOffset, startOffset + length))
   }
   const fsMod = await import('fs')
   const { Readable: ReadableClass } = await import('stream')
@@ -248,7 +414,14 @@ export async function readRange(
 
 export async function deleteStorageFile(storagePath: string) {
   if (onCloudflare()) {
-    await r2().delete(r2Key(storagePath)).catch(() => {})
+    const bucket = r2Binding()
+    if (bucket) {
+      await bucket.delete(r2Key(storagePath)).catch(() => {})
+      return
+    }
+    await db.mediaChunk
+      .deleteMany({ where: { storagePath: assertStoragePath(storagePath) } })
+      .catch(() => {})
     return
   }
   const fs = (await import('fs/promises')) as FsPromises
@@ -263,7 +436,7 @@ export async function discardPartial(storagePath: string) {
 
 /**
  * Kept for local-path validation compatibility: on Cloudflare it is a no-op
- * (R2 keys are base names), on self-host it enforces the upload directory.
+ * (R2/D1 keys are base names), on self-host it enforces the upload directory.
  */
 export function assertInsideUploadDir(storagePath: string): string {
   if (onCloudflare()) return storagePath

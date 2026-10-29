@@ -396,27 +396,6 @@ export function Diary() {
                         <Badge className="gap-1 bg-primary/15 text-primary text-[10px]">
                           <Lock className="h-2.5 w-2.5" aria-hidden /> opens {formatDate(le.sealedUntil)} · {coarseDuration(le.sealedUntil)}
                         </Badge>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" aria-label="Delete sealed entry">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="font-display">Delete this sealed day?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                It stays sealed, then it simply ceases to exist. You will never read it — and neither will anyone. This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Keep it sealed</AlertDialogCancel>
-                              <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void remove(le.id)}>
-                                Delete forever
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
                       </div>
                     </div>
                     <p className="mt-3 text-xs italic text-muted-foreground">

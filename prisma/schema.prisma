@@ -26,13 +26,14 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  sessions   Session[]
-  tokens     AuthToken[]
-  posts      Post[]
-  media      Media[]
-  reactions  Reaction[]
-  reports    Report[]
-  diary      DiaryEntry[]
+  sessions      Session[]
+  tokens        AuthToken[]
+  posts         Post[]
+  media         Media[]
+  reactions     Reaction[]
+  reports       Report[]
+  diary         DiaryEntry[]
+  notifications Notification[]
 }
 
 model Session {
@@ -77,6 +78,7 @@ model Post {
   magicKeyLookup  String? // HMAC-SHA256(normalized key, server secret) — lets the site FIND the capsule from the key without ever storing the key itself
   magicKeyHint    String? // optional hint shown to a key-holder while the capsule is still sealed (never shown for a wrong key)
   magicKeyOpenedAt DateTime? // the first time someone unlocked this capsule with the Magic Key
+  notifiedAt      DateTime? // set once the "your capsule has opened" in-app notification was issued for it
   views           Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -87,6 +89,7 @@ model Post {
 
   @@index([magicKeyLookup])
 }
+
 
 // A page of the author's everyday diary — the small, ordinary days,
 // recorded for later. An entry can also be sealed: even the author
@@ -100,10 +103,43 @@ model DiaryEntry {
   mood        String?   // optional mood chip, e.g. SUNNY | CALM | STORMY | GRATEFUL | HOPEFUL
   entryDate   DateTime  // the day being recorded (may differ from createdAt)
   sealedUntil DateTime? // personal time-lock: hidden from everyone — including the author — until then
+  notifiedAt  DateTime? // set once the "your sealed entry has opened" in-app notification was issued
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([authorId, entryDate])
+}
+
+// Cloudflare fallback storage: when no R2 bucket is connected, uploaded files
+// live INSIDE the D1/SQLite database as fixed-size chunks. Range reads pick
+// exactly the chunks needed, so video seeking still works.
+model MediaChunk {
+  id          String @id @default(cuid())
+  storagePath String // matches Media.storagePath (plain file name)
+  seq         Int    // chunk index, 0-based — every chunk is CHUNK_SIZE bytes except the last
+  size        Int    // bytes stored in this chunk
+  data        Bytes
+
+  @@unique([storagePath, seq])
+  @@index([storagePath])
+}
+
+// In-app notifications — "your capsule opened today" moments.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String    // CAPSULE_OPENED | DIARY_OPENED
+  title     String
+  body      String
+  postId    String?   // vault capsule this notification points at
+  entryId   String?   // diary entry this notification points at
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@unique([kind, postId])
+  @@unique([kind, entryId])
+  @@index([userId, createdAt])
 }
 
 model Media {

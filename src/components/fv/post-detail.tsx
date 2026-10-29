@@ -63,8 +63,8 @@ export function PostDetail({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
-     
-    void load()
+    const t = setTimeout(() => void load(), 0)
+    return () => clearTimeout(t)
   }, [load, session])
 
   async function react(type: string | null) {
@@ -146,7 +146,7 @@ export function PostDetail({ id }: { id: string }) {
 
   if (!data) return null
   const { post, isAuthor } = data
-  const sealed = post.status === 'SEALED'
+  const sealed = post.status === 'SEALED' && !!post.releaseAt && new Date(post.releaseAt) > new Date()
   const canReact = session && !sealed && post.privacy === 'PUBLIC' && !isAuthor
 
   return (
@@ -190,7 +190,7 @@ export function PostDetail({ id }: { id: string }) {
           </div>
         </div>
 
-        {isAuthor && (
+        {isAuthor && !sealed && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate({ name: 'edit', id: post.id })}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Edit

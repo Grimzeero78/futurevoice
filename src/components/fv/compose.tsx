@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Loader2, UploadCloud, X, Lock, Unlock, Globe, EyeOff, CalendarClock, Trash2, Send, Infinity as InfinityIcon,
+  Loader2, UploadCloud, X, Lock, Unlock, Globe, EyeOff, CalendarClock, Trash2, Send, Paperclip,
   KeyRound, Wand2, PenLine,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -87,17 +87,30 @@ export function Compose({ editId }: { editId?: string }) {
   }, [cyYear, cyMonth])
 
   useEffect(() => {
-     
-    if (parseInt(cyDay, 10) > maxDay) setCyDay(String(maxDay))
+    const t = setTimeout(() => {
+      if (parseInt(cyDay, 10) > maxDay) setCyDay(String(maxDay))
+    }, 0)
+    return () => clearTimeout(t)
   }, [maxDay, cyDay])
 
   useEffect(() => {
     if (!session) return
     if (!isEdit) return
-     
-    setLoadingPost(true)
-    api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; media: MediaItem[]; heirNote?: string | null; hasMagicKey?: boolean; magicKeyHint?: string | null } }>(`/api/posts/${editId}`)
+
+    const t = setTimeout(() => {
+      setLoadingPost(true)
+    api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; status?: string; media: MediaItem[]; heirNote?: string | null; hasMagicKey?: boolean; magicKeyHint?: string | null } }>(`/api/posts/${editId}`)
       .then((d) => {
+        // A sealed capsule is frozen — steer the author to the read-only view.
+        if (d.post.status === 'SEALED' && d.post.releaseAt && new Date(d.post.releaseAt) > new Date()) {
+          toast({
+            title: 'This capsule is sealed',
+            description: 'Nothing can be edited or deleted until its release date arrives. That is the promise of a time capsule.',
+          })
+          navigate({ name: 'post', id: editId! })
+          setLoadingPost(false)
+          return
+        }
         setTitle(d.post.title)
         setContent(d.post.content ?? '')
         setAudience(
@@ -118,6 +131,8 @@ export function Compose({ editId }: { editId?: string }) {
       })
       .catch((e) => toast({ title: 'Could not load capsule', description: e.message, variant: 'destructive' }))
       .finally(() => setLoadingPost(false))
+    }, 0)
+    return () => clearTimeout(t)
   }, [editId, session])
 
   if (!session) {
@@ -260,8 +275,8 @@ export function Compose({ editId }: { editId?: string }) {
             Attach media <span className="text-sm font-normal text-muted-foreground">(optional)</span>
           </h2>
           <p className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <InfinityIcon className="h-3.5 w-3.5 text-primary" aria-hidden />
-            No file-size limit — images, video &amp; audio are streamed straight to your vault. As many files as you like.
+            <Paperclip className="h-3.5 w-3.5 text-primary" aria-hidden />
+            Up to 48 MB per file on this Cloudflare deployment (no limit when self-hosted) — images, video &amp; audio ride along with your words. As many files as you like.
           </p>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

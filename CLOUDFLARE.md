@@ -114,28 +114,30 @@ and deploys automatically. Nothing to run.
 
 ---
 
-## Photos & videos (optional — needs a payment card)
+## Photos & videos (works out of the box — R2 optional)
 
-Cloudflare asks for a **payment card** when enabling R2 storage, even
-though the first 10 GB are free (you are not charged under the free
-limits). The site ships with media storage switched off so you can deploy
-with no card at all.
+Media uploads work on the free plan with **zero extra setup**: files are
+stored as chunks **inside your D1 database**. Each file can be up to
+**48 MB**, and the free database pool holds about **500 MB** in total —
+plenty for letters, photos and voice notes.
 
-- **Without R2:** letters, magic keys, diary, accounts — everything works.
-  Uploading a photo shows a friendly "media storage is not connected"
-  message instead.
-- **To switch media on later** (once you can add a card, e.g. a prepaid or
-  virtual card): dashboard → **Storage & Databases → R2 → Create bucket**
-  → name it `futurevoice-uploads` → then edit `wrangler.jsonc` on GitHub
-  and add this line inside the `{ }` (right after the `d1_databases`
-  block, keep the comma rules — the file shows exactly where):
+- **Want more?** Connect an R2 bucket and the limit rises to **90 MB per
+  file** with **10 GB** of storage. Cloudflare asks for a **payment card**
+  when enabling R2, even though the first 10 GB are free (you are not
+  charged under the free limits).
+- **To switch R2 on later** (e.g. a prepaid or virtual card): dashboard →
+  **Storage & Databases → R2 → Create bucket** → name it
+  `futurevoice-uploads` → then edit `wrangler.jsonc` on GitHub and add
+  this line inside the `{ }` (right after the `d1_databases` block, keep
+  the comma rules — the file shows exactly where):
 
 ```jsonc
 "r2_buckets": [ { "binding": "UPLOADS", "bucket_name": "futurevoice-uploads" } ],
 ```
 
-Commit → redeploy → uploads flow into R2. Files already sealed as
-text-only capsules are not affected.
+Commit → redeploy → new uploads flow into R2 automatically (the app
+prefers R2 whenever the binding exists). Text-only capsules are not
+affected either way.
 
 - **Want truly unlimited files with no card?** Run the self-hosted version
   (bottom of this page) on any machine — that mode has no size cap.
@@ -221,7 +223,7 @@ npm run cf:preview          # runs the REAL Workers runtime locally on :8787
 | Build fails early | The **Build command** must be exactly `npx opennextjs-cloudflare build` (it runs the Next.js build itself) |
 | Site is up but every page errors (Error 1101) | Tables missing — open `/api/setup` once |
 | `/api/setup` says it can't reach the database | The D1 id in `wrangler.jsonc` doesn't match your database, or the last deploy hasn't finished — fix and redeploy, then refresh |
-| Uploads say media storage is not connected | R2 isn't enabled (needs a card) — see "Photos & videos" above |
+| Uploads fail with a "storage" error | The database media pool is full (~500 MB on free D1) — delete old media or connect R2 (see "Photos & videos" above) |
 | Emails not arriving | No mail key set, or sender not verified in Brevo/Resend |
 | Login says "too many attempts" | Wait 15 minutes — brute-force protection doing its job |
 | Want a file bigger than 90 MB | Self-host: that mode has no size limit |

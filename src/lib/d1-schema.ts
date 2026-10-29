@@ -22,4 +22,18 @@ export const D1_SCHEMA_STATEMENTS: readonly string[] = [
   "CREATE INDEX \"DiaryEntry_authorId_entryDate_idx\" ON \"DiaryEntry\"(\"authorId\", \"entryDate\")",
   "CREATE UNIQUE INDEX \"Reaction_postId_userId_key\" ON \"Reaction\"(\"postId\", \"userId\")",
   "CREATE INDEX \"RateLimitHit_key_ts_idx\" ON \"RateLimitHit\"(\"key\", \"ts\")",
+  // ── 0002_media_chunks_notifications.sql ─────────────────────────
+  // NOTE: this file is auto-generated from migrations/*.sql and then
+  // hand-extended. migrations/0001_init.sql has drifted from the live
+  // schema (it still declares User.email), so regenerating with
+  // scripts/gen-d1-schema.mjs is NOT safe until 0001 is rewritten.
+  "CREATE TABLE \"MediaChunk\" (\n    \"id\" TEXT NOT NULL PRIMARY KEY,\n    \"storagePath\" TEXT NOT NULL,\n    \"seq\" INTEGER NOT NULL,\n    \"size\" INTEGER NOT NULL,\n    \"data\" BLOB NOT NULL\n)",
+  "CREATE UNIQUE INDEX \"MediaChunk_storagePath_seq_key\" ON \"MediaChunk\"(\"storagePath\", \"seq\")",
+  "CREATE INDEX \"MediaChunk_storagePath_idx\" ON \"MediaChunk\"(\"storagePath\")",
+  "CREATE TABLE \"Notification\" (\n    \"id\" TEXT NOT NULL PRIMARY KEY,\n    \"userId\" TEXT NOT NULL,\n    \"kind\" TEXT NOT NULL,\n    \"title\" TEXT NOT NULL,\n    \"body\" TEXT NOT NULL,\n    \"postId\" TEXT,\n    \"entryId\" TEXT,\n    \"createdAt\" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,\n    \"readAt\" DATETIME,\n    CONSTRAINT \"Notification_userId_fkey\" FOREIGN KEY (\"userId\") REFERENCES \"User\" (\"id\") ON DELETE CASCADE ON UPDATE CASCADE\n)",
+  "CREATE UNIQUE INDEX \"Notification_kind_postId_key\" ON \"Notification\"(\"kind\", \"postId\")",
+  "CREATE UNIQUE INDEX \"Notification_kind_entryId_key\" ON \"Notification\"(\"kind\", \"entryId\")",
+  "CREATE INDEX \"Notification_userId_createdAt_idx\" ON \"Notification\"(\"userId\", \"createdAt\")",
+  "ALTER TABLE \"Post\" ADD COLUMN \"notifiedAt\" DATETIME",
+  "ALTER TABLE \"DiaryEntry\" ADD COLUMN \"notifiedAt\" DATETIME",
 ]

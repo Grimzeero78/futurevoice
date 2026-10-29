@@ -25,7 +25,7 @@ const WALKTHROUGH = [
   {
     img: '/demo/steps/step-1-write.jpg',
     title: 'Write it, snap it, seal it in',
-    body: 'A letter, photographs, a video or a voice note — attach everything you want the future to hold. No size limits, no file limits.',
+    body: 'A letter, photographs, a video or a voice note — attach everything you want the future to hold. No file limits.',
     caption: 'Every capsule starts the way Rose started in 1944: a pen, a quiet evening, and the people you are writing for.',
     alt: 'A fountain pen resting on a notebook filled with handwriting',
   },

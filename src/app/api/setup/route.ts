@@ -31,6 +31,18 @@ export async function GET() {
     const errors: string[] = []
 
     for (const stmt of D1_SCHEMA_STATEMENTS) {
+      const alter = stmt.match(/ALTER\s+TABLE\s+"?(\w+)"?\s+ADD\s+COLUMN/i)
+      if (alter) {
+        try {
+          await db.$executeRawUnsafe(stmt)
+          created.push(`column ${alter[1]}`)
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          if (/duplicate column|already exists/i.test(msg)) skipped.push(`column ${alter[1]}`)
+          else errors.push(`column ${alter[1]}: ${msg}`)
+        }
+        continue
+      }
       const m = stmt.match(/CREATE\s+(?:UNIQUE\s+)?(TABLE|INDEX)\s+"?(\w+)"?/i)
       if (!m) {
         errors.push(`Unrecognized statement: ${stmt.slice(0, 80)}`)

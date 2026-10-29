@@ -8,9 +8,8 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Edit or delete one of my diary entries.
- * A SEALED entry is frozen: it cannot be read or edited until its seal
- * date arrives — that was the whole point of sealing it. It can still be
- * deleted (it belongs to the author), but it can never be peeked at.
+ * A SEALED entry is frozen: it cannot be read, edited or deleted until its
+ * seal date arrives — that was the whole point of sealing it.
  */
 
 const MAX_BODY = 20000
@@ -73,6 +72,12 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     const existing = await db.diaryEntry.findUnique({ where: { id } })
     if (!existing || existing.authorId !== user.id) {
       return NextResponse.json({ error: 'Diary entry not found.' }, { status: 404 })
+    }
+    if (existing.sealedUntil && existing.sealedUntil > new Date()) {
+      throw new HttpError(
+        403,
+        `This entry is sealed until ${existing.sealedUntil.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} — sealed days cannot be deleted either. That was the point.`,
+      )
     }
 
     await db.diaryEntry.delete({ where: { id } })

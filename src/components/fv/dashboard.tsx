@@ -210,33 +210,43 @@ export function Dashboard() {
                     <DropdownMenuItem onClick={() => navigate({ name: 'post', id: p.id })}>
                       <Eye className="mr-2 h-4 w-4" /> View
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate({ name: 'edit', id: p.id })}>
-                      <Pencil className="mr-2 h-4 w-4" /> Edit metadata
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void togglePrivacy(p)}>
-                      {p.privacy === 'PUBLIC' ? <EyeOff className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
-                      Make {p.privacy === 'PUBLIC' ? 'private' : 'public'}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem variant="destructive" onSelect={(e) => e.preventDefault()}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete…
+                    {p.status === 'SEALED' ? (
+                      // sealed = frozen: view only, exactly as a time capsule should be
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        <Lock className="mr-2 h-4 w-4" />
+                        Sealed{p.releaseAt ? ` until ${formatDate(p.releaseAt)}` : ''}
+                      </DropdownMenuItem>
+                    ) : (
+                      <>
+                        <DropdownMenuItem onClick={() => navigate({ name: 'edit', id: p.id })}>
+                          <Pencil className="mr-2 h-4 w-4" /> Edit metadata
                         </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="font-display">Delete “{p.title}”?</AlertDialogTitle>
-                          <AlertDialogDescription>The letter, files and reactions disappear forever. This cannot be undone.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Keep it</AlertDialogCancel>
-                          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void remove(p.id)}>
-                            Delete forever
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                        <DropdownMenuItem onClick={() => void togglePrivacy(p)}>
+                          {p.privacy === 'PUBLIC' ? <EyeOff className="mr-2 h-4 w-4" /> : <Globe className="mr-2 h-4 w-4" />}
+                          Make {p.privacy === 'PUBLIC' ? 'private' : 'public'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem variant="destructive" onSelect={(e) => e.preventDefault()}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete…
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="font-display">Delete “{p.title}”?</AlertDialogTitle>
+                              <AlertDialogDescription>The letter, files and reactions disappear forever. This cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Keep it</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void remove(p.id)}>
+                                Delete forever
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

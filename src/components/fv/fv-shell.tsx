@@ -22,6 +22,7 @@ import { Dashboard } from '@/components/fv/dashboard'
 import { Diary } from '@/components/fv/diary'
 import { Profile } from '@/components/fv/profile'
 import { Admin } from '@/components/fv/admin'
+import { NotificationsBell } from '@/components/fv/notifications'
 import { api, initials } from '@/lib/fv-client'
 import { useFV } from '@/lib/fv-store'
 
@@ -110,6 +111,7 @@ export function FVShell() {
 
             <div className="flex items-center gap-1.5">
               <ThemeToggle />
+              {session ? <NotificationsBell /> : null}
               {session === undefined ? null : session ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
