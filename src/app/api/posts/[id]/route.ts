@@ -25,12 +25,12 @@ function fmtSealDate(d: Date): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-/** A capsule whose release date is still in the future is SEALED — frozen for everyone. */
-function sealError(releaseAt: Date, deleting: boolean): HttpError {
-  const what = deleting
-    ? 'Sealed capsules cannot be deleted — that is the promise of a time capsule. Come back when it opens.'
-    : 'Sealed means sealed: nothing on it can be changed until it opens. That is the promise of a time capsule.'
-  return new HttpError(403, `This capsule is sealed until ${fmtSealDate(releaseAt)}. ${what}`)
+/** A capsule whose release date is still in the future is SEALED — even the author cannot open or change it. */
+function sealError(releaseAt: Date): HttpError {
+  return new HttpError(
+    403,
+    `This capsule is sealed until ${fmtSealDate(releaseAt)}. Sealed means sealed: nothing on it can be read or changed until it opens — that is the promise of a time capsule. (Deleting it unread is allowed.)`,
+  )
 }
 
 // ─── Post detail (with strict access control) ────────────────────
@@ -106,7 +106,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'Capsule not found.' }, { status: 404 })
     }
     if (existing.releaseAt && existing.releaseAt > new Date()) {
-      throw sealError(existing.releaseAt, false)
+      throw sealError(existing.releaseAt)
     }
 
     const body = await req.json().catch(() => ({}))
@@ -222,6 +222,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 // ─── Delete capsule (owner only) ─────────────────────────────────
+// Deleting a SEALED capsule is allowed — but only ever UNREAD: the
+// contents were never sent to the client, so there is no way to look
+// inside first. That is the escape hatch; peeking is not.
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params
@@ -230,9 +233,6 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     const existing = await db.post.findUnique({ where: { id }, include: { media: true } })
     if (!existing || existing.authorId !== user.id) {
       return NextResponse.json({ error: 'Capsule not found.' }, { status: 404 })
-    }
-    if (existing.releaseAt && existing.releaseAt > new Date()) {
-      throw sealError(existing.releaseAt, true)
     }
 
     await db.post.delete({ where: { id } })

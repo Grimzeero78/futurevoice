@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireUser, errorResponse } from '@/lib/auth'
+import { isSealed } from '@/lib/fv-core'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
  * Export the user's own data as a downloadable JSON file:
- * profile, every capsule (including private + sealed metadata),
+ * profile, every capsule (including private + sealed METADATA),
  * media inventory and reactions received.
+ *
+ * The seal holds here too: a sealed capsule's letter is exported as
+ * null — the export file must not become a peeking hole. Magic-key
+ * hashes never leave the server in any state.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -41,9 +46,15 @@ export async function GET(req: NextRequest) {
     const payload = {
       exportedAt: new Date().toISOString(),
       format: 'future-voices-export/v1',
-      note: 'Media files can be downloaded individually at /api/media/{id}?download=1',
+      note: 'Media files can be downloaded individually at /api/media/{id}?download=1. Sealed capsules keep their seal: letters reopen as null until the release date.',
       profile,
-      capsules: posts,
+      capsules: posts.map((p) => ({
+        ...p,
+        content: isSealed(p) ? null : p.content,
+        // key material never leaves the server, even in an export
+        magicKeyHash: undefined,
+        magicKeyLookup: undefined,
+      })),
       mediaLibrary: media,
       reactionsReceived: reactions,
     }

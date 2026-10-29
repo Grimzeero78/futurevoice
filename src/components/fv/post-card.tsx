@@ -85,7 +85,9 @@ export const PostCard = memo(function PostCard({ post, index = 0 }: { post: Seri
             {post.title}
           </h3>
           <p className="text-sm text-muted-foreground line-clamp-3">
-            {excerpt(post.content, 120) || (post.media.length ? 'A message in pictures & sound.' : '')}
+            {sealed
+              ? 'No peeking — not even for you — until the day it opens.'
+              : excerpt(post.content, 120) || (post.media.length ? 'A message in pictures & sound.' : '')}
           </p>
           <div className="mt-auto flex items-center justify-between pt-2 text-xs text-muted-foreground">
             <span>by {post.author?.displayName ?? 'Unknown'}</span>

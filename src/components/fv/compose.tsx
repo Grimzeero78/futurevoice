@@ -101,11 +101,11 @@ export function Compose({ editId }: { editId?: string }) {
       setLoadingPost(true)
     api<{ post: { title: string; content: string | null; privacy: string; recipientTag: string; customRecipient: string | null; appearInArchive: boolean; releaseAt: string | null; status?: string; media: MediaItem[]; heirNote?: string | null; hasMagicKey?: boolean; magicKeyHint?: string | null } }>(`/api/posts/${editId}`)
       .then((d) => {
-        // A sealed capsule is frozen — steer the author to the read-only view.
+        // A sealed capsule is a locked box — steer the author to the sealed view.
         if (d.post.status === 'SEALED' && d.post.releaseAt && new Date(d.post.releaseAt) > new Date()) {
           toast({
             title: 'This capsule is sealed',
-            description: 'Nothing can be edited or deleted until its release date arrives. That is the promise of a time capsule.',
+            description: 'Even you cannot open it until its release date. You may delete it unread from your vault — but there is no peeking.',
           })
           navigate({ name: 'post', id: editId! })
           setLoadingPost(false)
@@ -214,7 +214,7 @@ export function Compose({ editId }: { editId?: string }) {
         toast({
           title: d.post.status === 'SEALED' ? 'Capsule sealed 🔒' : 'Capsule launched',
           description: d.post.status === 'SEALED'
-            ? `It will open on ${formatDate(releaseDate)}. Until then, not even a whisper escapes.`
+            ? `It opens on ${formatDate(releaseDate)}. Until then, even you cannot see what is inside — the only way back is deleting it unread.`
             : 'Your message is now traveling to the future.',
         })
         if (audience === 'MAGIC' && magicKey.trim()) {
@@ -528,6 +528,17 @@ export function Compose({ editId }: { editId?: string }) {
                 </Button>
               )}
             </div>
+
+            {releaseDate && (
+              <p className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span>
+                  Once sealed, <strong>even you</strong> cannot see what is inside — no reading, no editing, no
+                  peeking until {formatDate(releaseDate, { year: 'numeric', month: 'long', day: 'numeric' })}. The
+                  only way back is deleting it <em>unread</em>.
+                </span>
+              </p>
+            )}
 
             {/* quick presets */}
             <div className="mt-3 flex flex-wrap gap-2">

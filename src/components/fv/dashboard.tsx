@@ -207,17 +207,42 @@ export function Dashboard() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => navigate({ name: 'post', id: p.id })}>
-                      <Eye className="mr-2 h-4 w-4" /> View
-                    </DropdownMenuItem>
                     {p.status === 'SEALED' ? (
-                      // sealed = frozen: view only, exactly as a time capsule should be
-                      <DropdownMenuItem disabled className="text-muted-foreground">
-                        <Lock className="mr-2 h-4 w-4" />
-                        Sealed{p.releaseAt ? ` until ${formatDate(p.releaseAt)}` : ''}
-                      </DropdownMenuItem>
+                      // sealed = a locked box: even the author cannot look inside.
+                      // The only action left is deleting it UNREAD.
+                      <>
+                        <DropdownMenuItem disabled className="text-muted-foreground">
+                          <Lock className="mr-2 h-4 w-4" />
+                          Sealed{p.releaseAt ? ` until ${formatDate(p.releaseAt)}` : ''} — no peeking
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem variant="destructive" onSelect={(e) => e.preventDefault()}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete without reading…
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="font-display">Destroy “{p.title}” unread?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                The seal holds until{p.releaseAt ? ` ${formatDate(p.releaseAt)}` : ' its day'} — you cannot read the letter or see the files first, not even now. Deleting destroys everything inside, unread, forever.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Keep it sealed</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void remove(p.id)}>
+                                Destroy it unread
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
                     ) : (
                       <>
+                        <DropdownMenuItem onClick={() => navigate({ name: 'post', id: p.id })}>
+                          <Eye className="mr-2 h-4 w-4" /> View
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate({ name: 'edit', id: p.id })}>
                           <Pencil className="mr-2 h-4 w-4" /> Edit metadata
                         </DropdownMenuItem>

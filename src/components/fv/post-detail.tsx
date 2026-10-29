@@ -227,16 +227,53 @@ export function PostDetail({ id }: { id: string }) {
             </AlertDialog>
           </div>
         )}
+
+        {isAuthor && sealed && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Delete unread
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="font-display">Destroy “{post.title}” unread?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The seal holds until{post.releaseAt ? ` ${formatDate(post.releaseAt)}` : ' its day'} — you cannot read the letter or see the files first, not even now. Deleting destroys everything inside, unread, forever.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep it sealed</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-white hover:bg-destructive/90"
+                  onClick={async () => {
+                    try {
+                      await api(`/api/posts/${id}`, { method: 'DELETE' })
+                      toast({ title: 'Sealed capsule destroyed, never read' })
+                      navigate({ name: 'dashboard' })
+                    } catch (e) {
+                      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' })
+                    }
+                  }}
+                >
+                  Destroy it unread
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {/* countdown strip */}
       {sealed && post.releaseAt && (
         <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-5">
           <Countdown target={post.releaseAt} />
-          {isAuthor && (
+          {isAuthor ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              You are the author — you can preview the contents below. Everyone else sees only the seal.
+              Sealed means sealed — even <span className="font-medium">you</span> cannot see what is inside until the day it opens. You may delete it unread, but there is no peeking. That is the promise of a time capsule.
             </p>
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">Come back when the seal breaks — the countdown is already running.</p>
           )}
         </div>
       )}

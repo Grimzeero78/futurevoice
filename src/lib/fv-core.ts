@@ -79,7 +79,11 @@ export function serializePost(post: PrismaPost, opts: { sealedOverride?: boolean
   return {
     id: post.id,
     title: post.title,
-    content: post.content,
+    // A sealed capsule is a locked box: the letter and the files are
+    // invisible to EVERYONE — the author included — until the release
+    // date. The label on the lid (title, recipient, countdown) stays
+    // visible; the contents do not leave the server at all.
+    content: sealed ? null : post.content,
     privacy: post.privacy,
     status: sealed ? 'SEALED' : 'PUBLISHED',
     releaseAt: post.releaseAt,
@@ -93,7 +97,7 @@ export function serializePost(post: PrismaPost, opts: { sealedOverride?: boolean
     updatedAt: post.updatedAt,
     authorId: post.authorId,
     author: post.author ? { id: post.author.id, displayName: post.author.displayName } : null,
-    media: (post.media ?? []).map((m) => ({
+    media: sealed ? [] : (post.media ?? []).map((m) => ({
       id: m.id,
       kind: m.kind,
       filename: m.filename,
@@ -101,6 +105,8 @@ export function serializePost(post: PrismaPost, opts: { sealedOverride?: boolean
       size: m.size,
       url: `/api/media/${m.id}`,
     })),
+    // how many files sleep inside (safe metadata — no ids, no bytes)
+    mediaCount: (post.media ?? []).length,
     reactionCounts,
     reactionTotal: post._count?.reactions ?? post.reactions?.length ?? 0,
     // ── the note that travels with the capsule (shown to magic-key readers) ──

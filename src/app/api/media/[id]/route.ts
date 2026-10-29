@@ -4,6 +4,10 @@ import { getCurrentUser, errorResponse } from '@/lib/auth'
 import { fileSize, readRange, deleteStorageFile } from '@/lib/storage'
 import { isSealed, verifyMagicGrant } from '@/lib/fv-core'
 
+function fmtRelease(d: Date): string {
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +46,20 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       },
     })
     if (!media) return NextResponse.json({ error: 'Media not found.' }, { status: 404 })
+
+    // A sealed capsule is a locked box — its files do not open for ANYONE,
+    // the author included, until the release date.
+    if (media.post && isSealed(media.post)) {
+      const authorBlocked = media.post.authorId === user?.id
+      return NextResponse.json(
+        {
+          error: authorBlocked
+            ? `This capsule is sealed until ${media.post.releaseAt ? fmtRelease(media.post.releaseAt) : 'its release date'} — even you can't open it yet. That is the promise of a time capsule.`
+            : 'This content is sealed until its release date.',
+        },
+        { status: 403 },
+      )
+    }
 
     const isOwner = !!user && user.id === media.ownerId
     // magic-key reader: signed grant + the capsule has actually opened
@@ -126,6 +144,7 @@ export async function HEAD(req: NextRequest, ctx: { params: Promise<{ id: string
       include: { post: { select: { authorId: true, privacy: true, status: true, releaseAt: true, hidden: true, magicKeyHash: true } } },
     })
     if (!media) return new NextResponse(null, { status: 404 })
+    if (media.post && isSealed(media.post)) return new NextResponse(null, { status: 403 })
     const isOwner = !!user && user.id === media.ownerId
     let magicUnlocked = false
     if (media.post?.magicKeyHash && media.postId && !media.post.hidden) {
