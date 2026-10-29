@@ -10,9 +10,11 @@ export async function GET(req: NextRequest) {
     const user = await getCurrentUser(req)
     if (!user) return NextResponse.json({ user: null })
 
+    const now = new Date()
     const [postCount, sealedCount, reactionsReceived] = await Promise.all([
       db.post.count({ where: { authorId: user.id } }),
-      db.post.count({ where: { authorId: user.id, status: 'SEALED' } }),
+      // date-based: "sealed" means the release date is still in the future
+      db.post.count({ where: { authorId: user.id, releaseAt: { gt: now } } }),
       db.reaction.count({ where: { post: { authorId: user.id } } }),
     ])
 

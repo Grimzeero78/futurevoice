@@ -24,22 +24,27 @@ export const REPORT_REASONS = ['SPAM', 'INAPPROPRIATE', 'COPYRIGHT', 'OTHER'] as
 
 // ─── Serialization helpers ───────────────────────────────────────
 
-export function isSealed(post: { status: string; releaseAt: Date | null }): boolean {
-  if (post.releaseAt && post.releaseAt > new Date()) return true
-  return post.status === 'SEALED'
+/**
+ * Sealed is a DATE state, not a database flag: a capsule opens the instant
+ * its release date passes, even if no background job has flipped `status`
+ * yet. (Cloudflare Workers have no persistent timer — the status flip can
+ * lag behind indefinitely, so no access decision may ever depend on it.)
+ * The `status` column is bookkeeping/UX only.
+ */
+export function isSealed(post: { status?: string; releaseAt: Date | null }): boolean {
+  return !!post.releaseAt && post.releaseAt > new Date()
 }
 
 export function publicPostWhere() {
   const now = new Date()
+  // Purely date-based: a public capsule joins the archive the moment its
+  // release date passes — no scheduler required. (Status is bookkeeping.)
   return {
     privacy: 'PUBLIC',
     hidden: false,
     appearInArchive: true,
-    AND: [
-      { OR: [{ releaseAt: null }, { releaseAt: { lte: now } }] },
-      { NOT: { status: 'SEALED' } },
-    ],
-  } as const
+    OR: [{ releaseAt: null as null }, { releaseAt: { lte: now } }],
+  }
 }
 
 type PrismaPost = {

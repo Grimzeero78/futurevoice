@@ -5,11 +5,12 @@ const g = globalThis as unknown as { __fvSchedulerStarted?: boolean }
 
 /**
  * Flips time-locked posts from SEALED to PUBLISHED once their release
- * date has passed. This is the "cron job" — it runs on a background
- * interval, and is additionally invoked lazily by archive queries and
+ * date has passed. This is pure bookkeeping for counts/badges: every
+ * access decision is date-based (see isSealed in fv-core), so a capsule
+ * opens the instant its date arrives even if this job never runs —
+ * important on Cloudflare Workers, where setInterval timers do not
+ * persist between requests. The flip is additionally invoked lazily
  * via POST /api/cron so an external scheduler can also trigger it.
- * Read-time checks in queries guarantee a post can never be exposed
- * early, even if this job has not fired yet.
  */
 export async function unlockDuePosts(): Promise<number> {
   const now = new Date()

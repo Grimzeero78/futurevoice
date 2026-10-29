@@ -50,8 +50,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const sealed = post.releaseAt && post.releaseAt > new Date()
 
     if (!isAuthor) {
-      const publiclyVisible =
-        post.privacy === 'PUBLIC' && !post.hidden && !(post.status === 'SEALED' || sealed)
+      // Date-based only: the moment releaseAt passes, the capsule is public
+      // (if marked PUBLIC) — regardless of the bookkeeping `status` flag.
+      const publiclyVisible = post.privacy === 'PUBLIC' && !post.hidden && !sealed
       if (!publiclyVisible) {
         if (sealed && post.privacy === 'PUBLIC' && !post.hidden) {
           // teaser: enough to render a "sealed until …" countdown page
