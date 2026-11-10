@@ -376,7 +376,7 @@ export function Compose({ editId }: { editId?: string }) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Who is this sealed message for — you in 10 years, your children, the people of 2078?</p>
+              <p className="text-xs text-muted-foreground">Who is this sealed message for — you in ten years, your children, your grandchildren, the generations after them?</p>
             </div>
           </div>
         </section>
