@@ -43,6 +43,15 @@ export async function GET() {
         }
         continue
       }
+      const drop = stmt.match(/DROP\s+(?:TABLE|INDEX)\s+(?:IF\s+EXISTS\s+)?"?(\w+)"?/i)
+      if (drop) {
+        // /api/setup never destroys anything — a DROP here is a migration-only
+        // repair step. Skipping it is safe in every case: if the object exists
+        // the matching CREATE below is skipped too, and if it is genuinely
+        // missing the CREATE re-creates it.
+        skipped.push(`drop ${drop[1].toLowerCase()} (setup never drops)`)
+        continue
+      }
       const m = stmt.match(/CREATE\s+(?:UNIQUE\s+)?(TABLE|INDEX)\s+"?(\w+)"?/i)
       if (!m) {
         errors.push(`Unrecognized statement: ${stmt.slice(0, 80)}`)

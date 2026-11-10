@@ -100,7 +100,12 @@ export function PostDetail({ id }: { id: string }) {
   }, [id])
 
   useEffect(() => {
-    if (data && !teaser && data.post.status !== 'SEALED') void loadComments()
+    if (!data || teaser) return
+    // Date-based, never status: on Cloudflare Workers the SEALED bookkeeping
+    // flag can lag behind the release date — comments must open the instant
+    // the date passes, exactly like the capsule content itself.
+    const dateUnlocked = !data.post.releaseAt || new Date(data.post.releaseAt) <= new Date()
+    if (dateUnlocked) void loadComments()
   }, [data, teaser, loadComments])
 
   async function addComment() {
