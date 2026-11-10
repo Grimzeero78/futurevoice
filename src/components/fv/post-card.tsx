@@ -4,7 +4,7 @@ import { memo } from 'react'
 import { motion } from 'framer-motion'
 import { Lock, Eye, Heart, ImageOff, Video, Mail, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { recipientLabel, excerpt, formatDate } from '@/lib/fv-client'
+import { recipientLabel, excerpt, formatDate, coarseDuration } from '@/lib/fv-client'
 import { useFV } from '@/lib/fv-store'
 import type { SerializedPost } from '@/lib/fv-core'
 
@@ -114,3 +114,53 @@ export function SealedTeaserCard({ mediaCount }: { mediaCount: number }) {
     </div>
   )
 }
+
+export type AsleepCapsule = {
+  id: string
+  releaseAt: string | Date | null
+  recipientTag: string
+  customRecipient: string | null
+  mediaCount: number
+}
+
+/** A capsule that has not opened yet — shown in the archive's "still asleep"
+ * wall. Blind by construction: no title, no author, no words — only the
+ * wake-up day, the recipient label and how many files sleep inside. */
+export const AsleepCard = memo(function AsleepCard({ asleep, index = 0 }: { asleep: AsleepCapsule; index?: number }) {
+  const navigate = useFV((s) => s.navigate)
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.4) }}
+      onClick={() => navigate({ name: 'post', id: asleep.id })}
+      aria-label={`A sealed capsule that opens ${asleep.releaseAt ? formatDate(asleep.releaseAt) : 'one day'}`}
+      className="group relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-primary/40 sealed-stripes text-left shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <div className="flex h-40 w-full flex-col items-center justify-center gap-2 bg-primary/5">
+        <span className="relative flex items-center justify-center">
+          <span className="absolute h-12 w-12 rounded-full bg-primary/30 ring-pulse" aria-hidden />
+          <span className="wax-seal flex h-11 w-11 items-center justify-center rounded-full">
+            <Lock className="h-5 w-5 text-primary-foreground" aria-hidden />
+          </span>
+        </span>
+        <span className="text-xs font-medium uppercase tracking-widest text-primary">Still asleep</span>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+          <Clock className="h-3 w-3" aria-hidden /> {recipientLabel(asleep.recipientTag, asleep.customRecipient)}
+        </span>
+        <h3 className="font-display text-lg font-semibold leading-snug text-muted-foreground transition-colors group-hover:text-primary">
+          Opens {asleep.releaseAt ? formatDate(asleep.releaseAt, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'one day'}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          {asleep.releaseAt ? `Wakes ${coarseDuration(asleep.releaseAt)}. ` : ''}
+          {asleep.mediaCount > 0 ? `${asleep.mediaCount} file${asleep.mediaCount === 1 ? '' : 's'} sleeping inside. ` : ''}
+          Come back when the seal breaks.
+        </p>
+        <span className="mt-auto pt-2 text-xs text-muted-foreground">The words are sealed — even the archive cannot read them yet.</span>
+      </div>
+    </motion.button>
+  )
+})

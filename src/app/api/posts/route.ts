@@ -9,6 +9,7 @@ import {
   parseReleaseDate,
   parseMagicKey,
   assertMediaOwnership,
+  assertSevenYearSleep,
 } from '@/lib/fv-core'
 import { screenText, registerViolation } from '@/lib/moderation'
 import { hashPassword } from '@/lib/auth'
@@ -85,12 +86,51 @@ export async function GET(req: NextRequest) {
       db.post.count({ where }),
     ])
 
+    // ── Still asleep — the wall of capsules that have not opened yet.
+    // Blind by construction: id, wake-up day, recipient label and the
+    // number of sleeping files. Never a title, a name, or a word of content.
+    const asleepWhere: Prisma.PostWhereInput = {
+      privacy: 'PUBLIC',
+      hidden: false,
+      appearInArchive: true,
+      releaseAt: { gt: new Date() },
+    }
+    if (recipient && !['ALL', 'ANY'].includes(recipient.toUpperCase())) {
+      asleepWhere.recipientTag = recipient.toUpperCase()
+    }
+    if (/^\d{4}$/.test(year)) {
+      const y = parseInt(year, 10)
+      asleepWhere.releaseAt = {
+        gte: new Date(`${y}-01-01T00:00:00.000Z`),
+        lt: new Date(`${y + 1}-01-01T00:00:00.000Z`),
+      }
+    }
+    const asleep = await db.post.findMany({
+      where: asleepWhere,
+      orderBy: { releaseAt: 'asc' }, // first to wake
+      take: 24,
+      select: {
+        id: true,
+        releaseAt: true,
+        recipientTag: true,
+        customRecipient: true,
+        _count: { select: { media: true } },
+      },
+    })
+
     return NextResponse.json({
       posts: posts.map((p) => serializePost(p)),
       total,
       page,
       pageSize: PAGE_SIZE,
       totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+      asleep: asleep.map((a) => ({
+        id: a.id,
+        releaseAt: a.releaseAt,
+        recipientTag: a.recipientTag,
+        customRecipient: a.customRecipient,
+        mediaCount: a._count.media,
+      })),
     })
   } catch (e) {
     return errorResponse(e)
@@ -133,6 +173,9 @@ export async function POST(req: NextRequest) {
     if (magicKeyHint && magicKeyHint.length > 200) {
       throw new HttpError(400, 'The hint for your magic key is limited to 200 characters.')
     }
+    // ── The seven-year law: nothing can be read today. Every capsule —
+    // public or private — must choose a wake-up day at least seven years out.
+    assertSevenYearSleep(releaseAt)
     // The Magic Key: a secret word/number/phrase — the only way to hand a
     // private capsule to someone. Only its HMAC lookup + scrypt hash are ever stored.
     const parsedMagicKey = magicKey ? parseMagicKey(magicKey) : null

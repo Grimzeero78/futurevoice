@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { onCloudflare } from '@/lib/env'
 import { D1_SCHEMA_STATEMENTS } from '@/lib/d1-schema'
+import { allowShortSeals } from '@/lib/fv-core'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,33 @@ export async function GET() {
         const msg = e instanceof Error ? e.message : String(e)
         if (/already exists/i.test(msg)) skipped.push(`${kind} ${name}`)
         else errors.push(`${kind} ${name}: ${msg}`)
+      }
+    }
+
+    // ── The seven-year law (backfill) ────────────────────────────────
+    // Every PUBLIC capsule must sleep at least seven years from the day it
+    // was created. Capsules made before this rule — with no wake-up date or
+    // a sooner one — get their release moved to createdAt + 7 years. Words,
+    // files and privacy settings are never touched; private capsules keep
+    // whatever their author chose for themselves.
+    let backfilled = 0
+    if (!allowShortSeals()) {
+      try {
+        const publics = await db.post.findMany({
+          where: { privacy: 'PUBLIC' },
+          select: { id: true, createdAt: true, releaseAt: true },
+        })
+        for (const p of publics) {
+          const earliest = new Date(p.createdAt)
+          earliest.setFullYear(earliest.getFullYear() + 7)
+          if (!p.releaseAt || p.releaseAt < earliest) {
+            await db.post.update({ where: { id: p.id }, data: { releaseAt: earliest } })
+            backfilled++
+          }
+        }
+        if (backfilled > 0) created.push(`seven-year sleep restored on ${backfilled} public capsule(s)`)
+      } catch (e) {
+        errors.push(`seven-year backfill: ${e instanceof Error ? e.message : String(e)}`)
       }
     }
 

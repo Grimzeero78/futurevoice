@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ArchiveX } from 'lucide-react'
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight, ArchiveX, MoonStar } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PostCard } from '@/components/fv/post-card'
+import { PostCard, AsleepCard, type AsleepCapsule } from '@/components/fv/post-card'
 import { api, RECIPIENT_LABELS } from '@/lib/fv-client'
 import type { SerializedPost } from '@/lib/fv-core'
 
@@ -23,6 +23,7 @@ const INITIAL: Filters = { q: '', recipient: 'ALL', mediaType: 'ALL', year: '', 
 export function Archive() {
   const [filters, setFilters] = useState<Filters>(INITIAL)
   const [posts, setPosts] = useState<SerializedPost[] | null>(null)
+  const [asleep, setAsleep] = useState<AsleepCapsule[] | null>(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
@@ -42,16 +43,18 @@ export function Archive() {
         sort: f.sort,
         page: String(p),
       })
-      const data = await api<{ posts: SerializedPost[]; totalPages: number; total: number }>(
+      const data = await api<{ posts: SerializedPost[]; totalPages: number; total: number; asleep?: AsleepCapsule[] }>(
         `/api/posts?${params.toString()}`,
       )
       setPosts(data.posts)
+      setAsleep(data.asleep ?? [])
       setTotalPages(data.totalPages)
       setTotal(data.total)
       setPage(p)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The archive could not be reached.')
       setPosts([])
+      setAsleep([])
     }
   }, [])
 
@@ -101,7 +104,7 @@ export function Archive() {
             <SelectContent>
               <SelectItem value="ALL">All recipients</SelectItem>
               {Object.entries(RECIPIENT_LABELS)
-                .filter(([k]) => k !== 'NONE' && k !== 'CUSTOM')
+                .filter(([k]) => k !== 'NONE' && k !== 'CUSTOM' && k !== 'PEOPLE_2078')
                 .map(([k, label]) => (
                   <SelectItem key={k} value={k}>{label}</SelectItem>
                 ))}
@@ -169,12 +172,33 @@ export function Archive() {
         </div>
       )}
 
+      {/* still asleep — sealed capsules with their wake-up day; blind by design */}
+      {!error && asleep !== null && asleep.length > 0 && (
+        <section className="mb-10" aria-labelledby="asleep-heading">
+          <h2 id="asleep-heading" className="mb-1 flex items-center gap-2 font-display text-xl font-semibold">
+            <MoonStar className="h-5 w-5 text-primary" aria-hidden /> Still asleep
+          </h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            {asleep.length} capsule{asleep.length === 1 ? '' : 's'} waiting in the dark — every one sleeps at least seven years. The words stay sealed until the day they open.
+          </p>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {asleep.map((a, i) => (
+              <AsleepCard key={a.id} asleep={a} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {!error && posts !== null && posts.length === 0 && (
         <div className="rounded-xl border border-dashed p-14 text-center">
           <ArchiveX className="mx-auto mb-3 h-10 w-10 text-muted-foreground" aria-hidden />
-          <p className="font-display text-lg font-semibold">No capsules match that search</p>
+          <p className="font-display text-lg font-semibold">
+            {asleep !== null && asleep.length > 0 ? 'Nothing has opened yet' : 'No capsules match that search'}
+          </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Try widening the years — the best messages may still be sealed.
+            {asleep !== null && asleep.length > 0
+              ? `Every capsule sleeps at least seven years — the first ones wake in ${asleep[0].releaseAt ? new Date(asleep[0].releaseAt).getFullYear() : 'the future'}.`
+              : 'Try widening the years — the best messages may still be sealed.'}
           </p>
         </div>
       )}

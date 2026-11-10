@@ -176,3 +176,12 @@
 .fv-scroll::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklab, var(--primary) 50%, transparent);
 }
+
+/* TikTok-style double-tap heart burst */
+@keyframes heart-burst {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(-8deg); opacity: 0; }
+  15%  { transform: translate(-50%, -50%) scale(1.35) rotate(4deg); opacity: 1; }
+  45%  { transform: translate(-50%, -55%) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-50%, -110%) scale(0.9); opacity: 0; }
+}
+.heart-burst { animation: heart-burst 0.9s ease-out forwards; }

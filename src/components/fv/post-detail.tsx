@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Eye, Flag, Pencil, Trash2, Globe, EyeOff, Lock, Unlock, Hourglass, CalendarDays, Loader2,
-  AlertTriangle, MailOpen, KeyRound, MessageCircle, Share2, Send, Smile, Check,
+  AlertTriangle, MailOpen, KeyRound, MessageCircle, Share2, Send, Smile, Check, Heart,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -62,6 +62,52 @@ export function PostDetail({ id }: { id: string }) {
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [shared, setShared] = useState(false)
   const commentInput = useRef<HTMLTextAreaElement | null>(null)
+  const commentsSection = useRef<HTMLElement | null>(null)
+
+  // ── TikTok-style double-tap to like ──
+  const lastTap = useRef(0)
+  const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>([])
+
+  function doubleTapLike(e: React.MouseEvent) {
+    const t = Date.now()
+    if (t - lastTap.current > 350) {
+      lastTap.current = t
+      return
+    }
+    lastTap.current = 0
+    const id = t
+    setBursts((b) => [...b, { id, x: e.clientX, y: e.clientY }])
+    setTimeout(() => setBursts((b) => b.filter((p) => p.id !== id)), 900)
+    if (!data) return
+    const { post: p, isAuthor: author } = data
+    if (p.status === 'SEALED' && !!p.releaseAt && new Date(p.releaseAt) > new Date()) return
+    if (p.privacy !== 'PUBLIC' || p.hidden) return
+    if (!session) {
+      openAuth('login')
+      return
+    }
+    if (author || data.myReaction === 'HEART') return // burst is enough
+    void react('HEART')
+  }
+
+  async function toggleLike() {
+    if (!data) return
+    if (!session) {
+      openAuth('login')
+      return
+    }
+    if (data.isAuthor) {
+      toast({ title: 'The future does the liking', description: 'You cannot react to your own capsule — but every signal lands where you can see it.' })
+      return
+    }
+    if (reacting) return
+    await react(data.myReaction === 'HEART' ? null : 'HEART')
+  }
+
+  function scrollToComments() {
+    commentsSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (session) setTimeout(() => commentInput.current?.focus(), 500)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -237,6 +283,8 @@ export function PostDetail({ id }: { id: string }) {
   const { post, isAuthor } = data
   const sealed = post.status === 'SEALED' && !!post.releaseAt && new Date(post.releaseAt) > new Date()
   const canReact = session && !sealed && post.privacy === 'PUBLIC' && !isAuthor
+  const likeCount = post.reactionCounts['HEART'] ?? 0
+  const socialOpen = !sealed && post.privacy === 'PUBLIC' && !post.hidden
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -393,11 +441,11 @@ export function PostDetail({ id }: { id: string }) {
         <section className="mb-6 space-y-3" aria-label="Attached media">
           {post.media.map((m) =>
             m.kind === 'IMAGE' ? (
-              <figure key={m.id} className="overflow-hidden rounded-xl border shadow-sm">
+              <figure key={m.id} onClick={doubleTapLike} className="cursor-pointer select-none overflow-hidden rounded-xl border shadow-sm">
                 <img src={m.url} alt={m.filename} className="max-h-[560px] w-full object-contain bg-secondary/50" loading="lazy" />
               </figure>
             ) : (
-              <figure key={m.id} className="overflow-hidden rounded-xl border bg-black shadow-sm">
+              <figure key={m.id} onClick={doubleTapLike} className="cursor-pointer select-none overflow-hidden rounded-xl border bg-black shadow-sm">
                 <video src={m.url} controls preload="metadata" className="max-h-[560px] w-full" />
               </figure>
             ),
@@ -407,9 +455,49 @@ export function PostDetail({ id }: { id: string }) {
 
       {/* letter */}
       {post.content && (
-        <section className="paper-grain rounded-xl border bg-card p-6 shadow-sm sm:p-8" aria-label="The letter">
+        <section
+          onClick={doubleTapLike}
+          className="paper-grain cursor-pointer rounded-xl border bg-card p-6 shadow-sm sm:p-8"
+          aria-label="The letter"
+        >
           <p className="whitespace-pre-wrap font-display text-[17px] leading-relaxed">{post.content}</p>
         </section>
+      )}
+
+      {/* ── TikTok-style action bar: like · comment · share ── */}
+      {socialOpen && (
+        <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Like, comment and share">
+          <button
+            type="button"
+            onClick={() => void toggleLike()}
+            aria-pressed={data.myReaction === 'HEART'}
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all ${
+              data.myReaction === 'HEART'
+                ? 'border-red-500/60 bg-red-500/10 text-red-600 dark:text-red-400'
+                : 'bg-card hover:border-red-500/40 hover:bg-red-500/5'
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${data.myReaction === 'HEART' ? 'fill-red-500 text-red-500' : ''}`} aria-hidden />
+            {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+          </button>
+          <button
+            type="button"
+            onClick={scrollToComments}
+            className="flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm transition-all hover:border-primary/50 hover:bg-primary/5"
+          >
+            <MessageCircle className="h-4 w-4" aria-hidden />
+            {commentTotal} {commentTotal === 1 ? 'comment' : 'comments'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void shareCapsule()}
+            className="flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm transition-all hover:border-primary/50 hover:bg-primary/5"
+          >
+            {shared ? <Check className="h-4 w-4 text-primary" aria-hidden /> : <Share2 className="h-4 w-4" aria-hidden />}
+            {shared ? 'Copied' : 'Share'}
+          </button>
+          <span className="ml-1 hidden text-xs text-muted-foreground sm:inline">double-tap the letter to ❤️</span>
+        </div>
       )}
 
       <Separator className="my-8" />
@@ -456,7 +544,7 @@ export function PostDetail({ id }: { id: string }) {
       </section>
 
       {/* ── the conversation — TikTok/IG style, opens with the capsule ── */}
-      <section aria-label="Comments" className="mt-2">
+      <section ref={commentsSection} aria-label="Comments" className="mt-2 scroll-mt-20">
         <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
           <MessageCircle className="h-4 w-4 text-primary" aria-hidden />
           {sealed ? 'Comments' : `Comments${commentTotal > 0 ? ` · ${commentTotal}` : ''}`}
@@ -587,6 +675,18 @@ export function PostDetail({ id }: { id: string }) {
         postId={post.id}
         onDone={() => toast({ title: 'Report received', description: 'A moderator will review it shortly.' })}
       />
+
+      {/* double-tap heart bursts */}
+      {bursts.map((b) => (
+        <span
+          key={b.id}
+          aria-hidden
+          className="heart-burst pointer-events-none fixed z-50 select-none text-6xl"
+          style={{ left: b.x, top: b.y }}
+        >
+          ❤️
+        </span>
+      ))}
     </div>
   )
 }

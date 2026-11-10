@@ -39,11 +39,56 @@ export function publicPostWhere() {
   const now = new Date()
   // Purely date-based: a public capsule joins the archive the moment its
   // release date passes — no scheduler required. (Status is bookkeeping.)
+  // A capsule with no wake-up date is only possible in dev/test mode
+  // (FV_ALLOW_SHORT_SEALS); the seven-year law forbids it on production.
   return {
     privacy: 'PUBLIC',
     hidden: false,
     appearInArchive: true,
-    OR: [{ releaseAt: null as null }, { releaseAt: { lte: now } }],
+    OR: allowShortSeals()
+      ? [{ releaseAt: null as null }, { releaseAt: { lte: now } }]
+      : [{ releaseAt: { lte: now } }],
+  }
+}
+
+// ─── The seven-year law ──────────────────────────────────────────
+// Nothing on Future Voices can be read today. Every capsule — public or
+// private — must sleep at least seven calendar years before it opens;
+// there is no "post it now". The date is the only key, and no access
+// decision ever depends on the bookkeeping `status` flag.
+
+export const MIN_SLEEP_YEARS = 7
+
+/** Dev/test escape hatch — NEVER set in production. Lets local E2E seal
+ * capsules for seconds so the date-based opening mechanics stay testable. */
+export function allowShortSeals(): boolean {
+  return process.env.FV_ALLOW_SHORT_SEALS === '1'
+}
+
+/** The earliest year a capsule may open: seven calendar years out. */
+export function minReleaseYear(): number {
+  return new Date().getFullYear() + MIN_SLEEP_YEARS
+}
+
+/** Enforce the seven-year sleep on a capsule's wake-up date. */
+export function assertSevenYearSleep(releaseAt: Date | null): void {
+  if (allowShortSeals()) return
+  if (!releaseAt) {
+    throw new HttpError(
+      400,
+      'Every capsule needs a wake-up date — Future Voices has no instant posts. The shortest sleep is seven years.',
+    )
+  }
+  // Calendar-year rule with a 36h grace window so any timezone rendering of
+  // the chosen day passes (a "2033" pick must never fail for being UTC+14).
+  const min = new Date()
+  min.setFullYear(min.getFullYear() + MIN_SLEEP_YEARS)
+  min.setTime(min.getTime() - 36 * 3600 * 1000)
+  if (releaseAt.getTime() < min.getTime()) {
+    throw new HttpError(
+      400,
+      `A time capsule sleeps at least ${MIN_SLEEP_YEARS} years — that is the promise. Pick a date in ${minReleaseYear()} or later.`,
+    )
   }
 }
 

@@ -53,20 +53,19 @@ export const RECIPIENT_LABELS: Record<string, string> = {
   FUTURE_SELF: 'My future self',
   FUTURE_CHILD: 'My future child',
   GRANDCHILDREN: 'My grandchildren',
-  PEOPLE_2078: 'People of 2078',
+  PEOPLE_2078: 'People of 2078', // legacy capsules only — no longer offered when composing
   FUTURE_GENERATIONS: 'Future generations',
   CUSTOM: 'Someone else', // legacy capsules only — no longer offered when composing
 }
 
-// What you can address a capsule to. "For the record" and "Someone else"
-// are gone on purpose: every capsule now speaks to a future — your own,
-// your children's, your grandchildren's, the people of 2078, or the
+// What you can address a capsule to. "For the record", "Someone else" and
+// "People of 2078" are gone on purpose: every capsule now speaks to a
+// future — your own, your children's, your grandchildren's, or the
 // generations after that.
 export const RECIPIENT_OPTIONS = [
   'FUTURE_SELF',
   'FUTURE_CHILD',
   'GRANDCHILDREN',
-  'PEOPLE_2078',
   'FUTURE_GENERATIONS',
 ] as const
 

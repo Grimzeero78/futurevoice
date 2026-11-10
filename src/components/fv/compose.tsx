@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Loader2, UploadCloud, X, Lock, Unlock, Globe, EyeOff, CalendarClock, Trash2, Send, Paperclip,
+  Loader2, UploadCloud, X, Lock, Globe, EyeOff, CalendarClock, Trash2, Send, Paperclip,
   KeyRound, Wand2, PenLine,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -56,7 +56,7 @@ export function Compose({ editId }: { editId?: string }) {
   const [recipientTag, setRecipientTag] = useState<string>('FUTURE_SELF')
   const [audience, setAudience] = useState<'PRIVATE' | 'MAGIC' | 'PUBLIC'>('PRIVATE')
   const [appearInArchive, setAppearInArchive] = useState(true)
-  const [releaseDate, setReleaseDate] = useState<Date | undefined>(undefined)
+  const [releaseDate, setReleaseDate] = useState<Date | undefined>(() => addYears(7))
   // custom date builder state
   const now = new Date()
   const [cyYear, setCyYear] = useState<string>(String(now.getFullYear() + 10))
@@ -179,6 +179,10 @@ export function Compose({ editId }: { editId?: string }) {
       toast({ title: 'Add a note or a file', description: 'An empty capsule would be a mystery even to the future.', variant: 'destructive' })
       return
     }
+    if (!releaseDate) {
+      toast({ title: 'Pick a wake-up date', description: 'Every capsule sleeps at least seven years — there are no instant posts on Future Voices.', variant: 'destructive' })
+      return
+    }
     if (audience === 'MAGIC' && !magicKey.trim() && !hasMagicKey) {
       toast({ title: 'Choose your magic key', description: 'You picked the magic key door — write the secret word, number or phrase your people will speak.', variant: 'destructive' })
       return
@@ -213,10 +217,8 @@ export function Compose({ editId }: { editId?: string }) {
       } else {
         const d = await api<{ post: { id: string; status: string } }>('/api/posts', { method: 'POST', json: payload })
         toast({
-          title: d.post.status === 'SEALED' ? 'Capsule sealed 🔒' : 'Capsule launched',
-          description: d.post.status === 'SEALED'
-            ? `It opens on ${formatDate(releaseDate)}. Until then, even you cannot see what is inside — the only way back is deleting it unread.`
-            : 'Your message is now traveling to the future.',
+          title: 'Capsule sealed 🔒',
+          description: `It opens on ${formatDate(releaseDate)}. Until that day nobody can read it, like it or comment — not even you. The only way back is deleting it unread.`,
         })
         if (audience === 'MAGIC' && magicKey.trim()) {
           setKeyReminder(magicKey.trim())
@@ -251,6 +253,11 @@ export function Compose({ editId }: { editId?: string }) {
       toast({ title: 'The past is behind us', description: 'Pick today or any moment in the future — as far away as the year 9999.', variant: 'destructive' })
       return
     }
+    const minYear = new Date().getFullYear() + 7
+    if (d.getFullYear() < minYear) {
+      toast({ title: 'A time capsule sleeps at least seven years', description: `That is the promise that makes the future matter. Pick ${minYear} or later.`, variant: 'destructive' })
+      return
+    }
     setReleaseDate(d)
   }
 
@@ -265,7 +272,7 @@ export function Compose({ editId }: { editId?: string }) {
         <p className="mt-2 text-muted-foreground">
           {isEdit
             ? 'Adjust the words, the seal, or the destination — the past is yours to edit.'
-            : 'Write it, record it, seal it. Nobody sees a sealed capsule before its time — not even us.'}
+            : 'Write it, record it, seal it. Every capsule sleeps at least seven years — nobody sees it before its day, not even us.'}
         </p>
       </header>
 
@@ -403,7 +410,7 @@ export function Compose({ editId }: { editId?: string }) {
               <RadioGroupItem value="PUBLIC" id="aud-public" className="mt-0.5" />
               <div>
                 <span className="flex items-center gap-1.5 font-medium"><Globe className="h-4 w-4" aria-hidden /> Everyone</span>
-                <span className="mt-1 block text-xs text-muted-foreground">Anyone can read it once it unseals — optionally listed in the public archive.</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Anyone can read it once it unseals — and until that day arrives, nobody can read it, like it, or comment on it. Not even you.</span>
               </div>
             </label>
           </RadioGroup>
@@ -504,43 +511,32 @@ export function Compose({ editId }: { editId?: string }) {
           <div className="mt-4 rounded-lg border border-dashed p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                {releaseDate ? (
-                  <Lock className="h-5 w-5 text-primary" aria-hidden />
-                ) : (
-                  <Unlock className="h-5 w-5 text-muted-foreground" aria-hidden />
-                )}
+                <Lock className="h-5 w-5 text-primary" aria-hidden />
                 <div>
-                  <p className="text-sm font-medium">Time lock</p>
+                  <p className="text-sm font-medium">Time lock — every capsule sleeps at least 7 years</p>
                   <p className="text-xs text-muted-foreground">
                     {releaseDate
                       ? `Sealed until ${formatDate(releaseDate, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} — ${coarseDuration(releaseDate)}.`
-                      : 'No lock — the capsule is open as soon as it is saved.'}
+                      : 'Pick a wake-up date below — there are no instant posts here.'}
                   </p>
                 </div>
               </div>
-              {releaseDate && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setReleaseDate(undefined)}>
-                  Remove lock
-                </Button>
-              )}
             </div>
 
-            {releaseDate && (
-              <p className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
-                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span>
-                  Once sealed, <strong>even you</strong> cannot see what is inside — no reading, no editing, no
-                  peeking until {formatDate(releaseDate, { year: 'numeric', month: 'long', day: 'numeric' })}. The
-                  only way back is deleting it <em>unread</em>.
-                </span>
-              </p>
-            )}
+            <p className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span>
+                Nothing on Future Voices can be read today — not by strangers, not in the archive, and not by you. Every
+                capsule sleeps at least seven years; the day it opens, the conversation begins. The only way back is
+                deleting it <em>unread</em>.
+              </span>
+            </p>
 
             {/* quick presets */}
             <div className="mt-3 flex flex-wrap gap-2">
-              {[1, 10, 25, 50, 100, 1000].map((n) => (
+              {[7, 10, 25, 50, 100, 1000].map((n) => (
                 <Button key={n} type="button" variant="secondary" size="sm" onClick={() => setReleaseDate(addYears(n))}>
-                  +{n} {n === 1 ? 'year' : 'years'}
+                  +{n} years
                 </Button>
               ))}
             </div>
@@ -548,7 +544,7 @@ export function Compose({ editId }: { editId?: string }) {
             {/* exact custom date: any year up to 9999 */}
             <div className="mt-4 rounded-md bg-secondary/40 p-3">
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Or choose an exact date — any year up to 9999
+                Or choose an exact date — {new Date().getFullYear() + 7} or later, any year up to 9999
               </p>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="space-y-1">
@@ -590,7 +586,7 @@ export function Compose({ editId }: { editId?: string }) {
                 </Button>
               </div>
               <p id="cy-hint" className="mt-2 text-xs text-muted-foreground">
-                Tip: set the year to 3026 to send a message a full millennium forward.
+                Tip: set the year to {new Date().getFullYear() + 1000} to send a message a full millennium forward.
               </p>
             </div>
 
@@ -639,7 +635,7 @@ export function Compose({ editId }: { editId?: string }) {
           <Button type="button" variant="outline" onClick={() => navigate({ name: 'dashboard' })}>Cancel</Button>
           <Button type="submit" disabled={saving || uploading.length > 0} className="min-w-44">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" aria-hidden />}
-            {isEdit ? 'Save changes' : releaseDate ? 'Seal & schedule' : 'Launch capsule'}
+            {isEdit ? 'Save changes' : 'Seal & schedule'}
           </Button>
         </div>
         {/* ─── Magic key reminder (after saving) ─── */}

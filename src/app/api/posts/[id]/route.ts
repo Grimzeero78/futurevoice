@@ -8,6 +8,7 @@ import {
   parseReleaseDate,
   parseMagicKey,
   assertMediaOwnership,
+  assertSevenYearSleep,
 } from '@/lib/fv-core'
 import { screenText, registerViolation } from '@/lib/moderation'
 
@@ -52,7 +53,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     if (!isAuthor) {
       // Date-based only: the moment releaseAt passes, the capsule is public
       // (if marked PUBLIC) — regardless of the bookkeeping `status` flag.
-      const publiclyVisible = post.privacy === 'PUBLIC' && !post.hidden && !sealed
+      // A capsule with no wake-up date is never publicly visible (the
+      // seven-year law forbids it; only dev/test mode can create one).
+      const publiclyVisible =
+        post.privacy === 'PUBLIC' && !post.hidden && !!post.releaseAt && !sealed
       if (!publiclyVisible) {
         if (sealed && post.privacy === 'PUBLIC' && !post.hidden) {
           // teaser: enough to render a "sealed until …" countdown page
@@ -142,6 +146,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
     if (body.releaseAt !== undefined) {
       const releaseAt = parseReleaseDate(body.releaseAt)
+      // ── The seven-year law applies to re-sealing too: an owner may set a
+      // new wake-up day, but never sooner than seven years out.
+      assertSevenYearSleep(releaseAt)
       data.releaseAt = releaseAt
       // recompute the lock status against the (possibly new) date
       data.status = releaseAt && releaseAt > new Date() ? 'SEALED' : 'PUBLISHED'
