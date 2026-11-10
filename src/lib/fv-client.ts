@@ -49,23 +49,25 @@ export function uploadFile(
 // ─── Shared constants (mirror of server) ─────────────────────────
 
 export const RECIPIENT_LABELS: Record<string, string> = {
-  NONE: 'For the record',
+  NONE: 'For the record', // legacy capsules only — no longer offered when composing
   FUTURE_SELF: 'My future self',
   FUTURE_CHILD: 'My future child',
   GRANDCHILDREN: 'My grandchildren',
   PEOPLE_2078: 'People of 2078',
   FUTURE_GENERATIONS: 'Future generations',
-  CUSTOM: 'Someone else',
+  CUSTOM: 'Someone else', // legacy capsules only — no longer offered when composing
 }
 
+// What you can address a capsule to. "For the record" and "Someone else"
+// are gone on purpose: every capsule now speaks to a future — your own,
+// your children's, your grandchildren's, the people of 2078, or the
+// generations after that.
 export const RECIPIENT_OPTIONS = [
-  'NONE',
   'FUTURE_SELF',
   'FUTURE_CHILD',
   'GRANDCHILDREN',
   'PEOPLE_2078',
   'FUTURE_GENERATIONS',
-  'CUSTOM',
 ] as const
 
 export const REACTION_META: { type: string; label: string }[] = [
@@ -105,6 +107,19 @@ export function formatBytes(n: number): string {
 export function recipientLabel(tag: string, custom?: string | null): string {
   if (tag === 'CUSTOM') return custom ? `To ${custom}` : 'Someone else'
   return RECIPIENT_LABELS[tag] ?? 'For the record'
+}
+
+/** "3 min ago" / "2 h ago" / "5 days ago" — compact social-feed phrasing */
+export function timeAgo(d: string | Date): string {
+  const s = Math.max(1, Math.floor((Date.now() - new Date(d).getTime()) / 1000))
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const days = Math.floor(h / 24)
+  if (days < 7) return `${days}d ago`
+  return formatDate(d, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 /** "in 52 years" / "in 3 days" / "in 2 hours" — coarse human phrasing */

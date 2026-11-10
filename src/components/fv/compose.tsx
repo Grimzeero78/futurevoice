@@ -53,8 +53,7 @@ export function Compose({ editId }: { editId?: string }) {
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [recipientTag, setRecipientTag] = useState<string>('NONE')
-  const [customRecipient, setCustomRecipient] = useState('')
+  const [recipientTag, setRecipientTag] = useState<string>('FUTURE_SELF')
   const [audience, setAudience] = useState<'PRIVATE' | 'MAGIC' | 'PUBLIC'>('PRIVATE')
   const [appearInArchive, setAppearInArchive] = useState(true)
   const [releaseDate, setReleaseDate] = useState<Date | undefined>(undefined)
@@ -120,8 +119,14 @@ export function Compose({ editId }: { editId?: string }) {
               ? 'PUBLIC'
               : 'PRIVATE',
         )
-        setRecipientTag(d.post.recipientTag)
-        setCustomRecipient(d.post.customRecipient ?? '')
+        // legacy capsules addressed to nobody ("For the record") or to a
+        // custom name now show the closest offered option — the compose
+        // picker no longer carries those two choices
+        setRecipientTag(
+          (RECIPIENT_OPTIONS as readonly string[]).includes(d.post.recipientTag)
+            ? d.post.recipientTag
+            : 'FUTURE_SELF',
+        )
         setAppearInArchive(d.post.appearInArchive)
         setReleaseDate(d.post.releaseAt ? new Date(d.post.releaseAt) : undefined)
         setMedia(d.post.media)
@@ -174,10 +179,6 @@ export function Compose({ editId }: { editId?: string }) {
       toast({ title: 'Add a note or a file', description: 'An empty capsule would be a mystery even to the future.', variant: 'destructive' })
       return
     }
-    if (recipientTag === 'CUSTOM' && !customRecipient.trim()) {
-      toast({ title: 'Name the custom recipient', variant: 'destructive' })
-      return
-    }
     if (audience === 'MAGIC' && !magicKey.trim() && !hasMagicKey) {
       toast({ title: 'Choose your magic key', description: 'You picked the magic key door — write the secret word, number or phrase your people will speak.', variant: 'destructive' })
       return
@@ -190,7 +191,7 @@ export function Compose({ editId }: { editId?: string }) {
         content: content.trim(),
         privacy: audience === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE',
         recipientTag,
-        customRecipient: recipientTag === 'CUSTOM' ? customRecipient.trim() : '',
+        customRecipient: '',
         appearInArchive,
         releaseAt: releaseDate ? releaseDate.toISOString() : null,
         mediaIds: media.map((m) => m.id),
@@ -368,13 +369,8 @@ export function Compose({ editId }: { editId?: string }) {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Who is this sealed message for — you in 10 years, your children, the people of 2078?</p>
             </div>
-            {recipientTag === 'CUSTOM' && (
-              <div className="space-y-2">
-                <Label htmlFor="customRecipient">Who is it for?</Label>
-                <Input id="customRecipient" value={customRecipient} onChange={(e) => setCustomRecipient(e.target.value)} maxLength={60} placeholder="e.g. my daughter Ada, born 2041" />
-              </div>
-            )}
           </div>
         </section>
 

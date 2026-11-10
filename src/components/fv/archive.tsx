@@ -101,7 +101,7 @@ export function Archive() {
             <SelectContent>
               <SelectItem value="ALL">All recipients</SelectItem>
               {Object.entries(RECIPIENT_LABELS)
-                .filter(([k]) => k !== 'NONE')
+                .filter(([k]) => k !== 'NONE' && k !== 'CUSTOM')
                 .map(([k, label]) => (
                   <SelectItem key={k} value={k}>{label}</SelectItem>
                 ))}

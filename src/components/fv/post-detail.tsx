@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Eye, Flag, Pencil, Trash2, Globe, EyeOff, Lock, Unlock, Hourglass, CalendarDays, Loader2,
-  AlertTriangle, MailOpen, KeyRound,
+  AlertTriangle, MailOpen, KeyRound, MessageCircle, Share2, Send, Smile, Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { toast } from '@/hooks/use-toast'
 import { Countdown } from '@/components/fv/countdown'
-import { api, recipientLabel, formatDate, REACTION_META, REPORT_REASONS, initials } from '@/lib/fv-client'
+import { api, recipientLabel, formatDate, timeAgo, REACTION_META, REPORT_REASONS, initials } from '@/lib/fv-client'
 import { useFV } from '@/lib/fv-store'
 import type { SerializedPost } from '@/lib/fv-core'
 
@@ -31,6 +31,17 @@ type Teaser = {
   teaser?: { id: string; releaseAt: string | null; recipientTag: string; customRecipient: string | null; mediaCount: number }
 }
 
+type CommentT = {
+  id: string
+  body: string
+  createdAt: string
+  userId: string
+  author: string
+}
+
+/** Quick emoji row — the future is spoken to in the language people use. */
+const COMMENT_EMOJI = ['❤️', '😂', '🥹', '😮', '😢', '🔥', '✨', '👏', '🙌', '🫶', '💯', '⏳', '🕰️', '💌', '🌍', '🌟']
+
 export function PostDetail({ id }: { id: string }) {
   const session = useFV((s) => s.session)
   const navigate = useFV((s) => s.navigate)
@@ -42,6 +53,15 @@ export function PostDetail({ id }: { id: string }) {
   const [loading, setLoading] = useState(true)
   const [reacting, setReacting] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+
+  // ── social state ──
+  const [comments, setComments] = useState<CommentT[] | null>(null)
+  const [commentTotal, setCommentTotal] = useState(0)
+  const [commentDraft, setCommentDraft] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [emojiOpen, setEmojiOpen] = useState(false)
+  const [shared, setShared] = useState(false)
+  const commentInput = useRef<HTMLTextAreaElement | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -66,6 +86,70 @@ export function PostDetail({ id }: { id: string }) {
     const t = setTimeout(() => void load(), 0)
     return () => clearTimeout(t)
   }, [load, session])
+
+  // comments exist only once the capsule is open
+  const loadComments = useCallback(async () => {
+    try {
+      const d = await api<{ comments: CommentT[]; total: number }>(`/api/posts/${id}/comments`)
+      setComments(d.comments)
+      setCommentTotal(d.total)
+    } catch {
+      setComments([])
+      setCommentTotal(0)
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (data && !teaser && data.post.status !== 'SEALED') void loadComments()
+  }, [data, teaser, loadComments])
+
+  async function addComment() {
+    if (!session) {
+      openAuth('login')
+      return
+    }
+    const body = commentDraft.trim()
+    if (!body) return
+    setPosting(true)
+    try {
+      const d = await api<{ comment: CommentT; total: number }>(`/api/posts/${id}/comments`, { method: 'POST', json: { body } })
+      setComments((c) => [...(c ?? []), d.comment])
+      setCommentTotal(d.total)
+      setCommentDraft('')
+      setEmojiOpen(false)
+    } catch (e) {
+      toast({ title: 'Comment failed', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' })
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  async function removeComment(commentId: string) {
+    try {
+      await api(`/api/posts/${id}/comments/${commentId}`, { method: 'DELETE' })
+      setComments((c) => (c ?? []).filter((x) => x.id !== commentId))
+      setCommentTotal((t) => Math.max(0, t - 1))
+    } catch (e) {
+      toast({ title: 'Could not delete', description: e instanceof Error ? e.message : 'Try again.', variant: 'destructive' })
+    }
+  }
+
+  async function shareCapsule() {
+    if (!data) return
+    const url = `${window.location.origin}/#/post/${data.post.id}`
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: data.post.title, text: `A capsule from the past: ${data.post.title}`, url })
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setShared(true)
+      setTimeout(() => setShared(false), 2000)
+      toast({ title: 'Link copied', description: 'Share it anywhere — WhatsApp, a group chat, the family thread.' })
+    } catch {
+      // user dismissed the native share sheet — not an error
+    }
+  }
 
   async function react(type: string | null) {
     if (!session) {
@@ -262,6 +346,14 @@ export function PostDetail({ id }: { id: string }) {
             </AlertDialogContent>
           </AlertDialog>
         )}
+
+        {/* share — TikTok/IG style, once the capsule is open and public */}
+        {!sealed && post.privacy === 'PUBLIC' && !post.hidden && (
+          <Button variant="outline" size="sm" onClick={() => void shareCapsule()}>
+            {shared ? <Check className="mr-1.5 h-3.5 w-3.5 text-primary" aria-hidden /> : <Share2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />}
+            {shared ? 'Copied' : 'Share'}
+          </Button>
+        )}
       </div>
 
       {/* countdown strip */}
@@ -355,6 +447,123 @@ export function PostDetail({ id }: { id: string }) {
                 ? 'Reactions open when the capsule does.'
                 : 'Sign in to leave a signal for the future.'}
           </p>
+        )}
+      </section>
+
+      {/* ── the conversation — TikTok/IG style, opens with the capsule ── */}
+      <section aria-label="Comments" className="mt-2">
+        <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
+          <MessageCircle className="h-4 w-4 text-primary" aria-hidden />
+          {sealed ? 'Comments' : `Comments${commentTotal > 0 ? ` · ${commentTotal}` : ''}`}
+        </h2>
+
+        {sealed ? (
+          <p className="flex items-center gap-2 rounded-lg border border-dashed bg-secondary/30 p-4 text-sm text-muted-foreground">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden />
+            Comments open when the capsule does — on {post.releaseAt ? formatDate(post.releaseAt, { year: 'numeric', month: 'long', day: 'numeric' }) : 'its day'} the letter lands and everyone can talk about it, react, and share it.
+          </p>
+        ) : (
+          <>
+            {comments === null ? (
+              <div className="h-16 animate-pulse rounded bg-muted" aria-hidden />
+            ) : comments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No comments yet — the seal just broke. Be the first voice of the future.
+              </p>
+            ) : (
+              <ul className="space-y-4">
+                {comments.map((c) => {
+                  const mine = session?.id === c.userId
+                  const canDelete = mine || isAuthor || data.isAdmin
+                  return (
+                    <li key={c.id} className="flex items-start gap-3">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                        {initials(c.author)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          <span className="font-semibold">{c.author}</span>{' '}
+                          <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
+                        </p>
+                        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{c.body}</p>
+                      </div>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          aria-label={mine ? 'Delete your comment' : 'Delete this comment'}
+                          onClick={() => void removeComment(c.id)}
+                          className="rounded p-1 text-muted-foreground transition-colors hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            {/* composer */}
+            {session ? (
+              <div className="mt-5 rounded-xl border bg-card p-3">
+                {emojiOpen && (
+                  <div className="mb-2 flex flex-wrap gap-1 rounded-lg border border-dashed bg-secondary/40 p-2" role="toolbar" aria-label="Emoji picker">
+                    {COMMENT_EMOJI.map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        className="rounded p-1 text-lg leading-none transition-transform hover:scale-125"
+                        aria-label={`Insert ${em}`}
+                        onClick={() => {
+                          setCommentDraft((d) => (d + em).slice(0, 1000))
+                          commentInput.current?.focus()
+                        }}
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <Textarea
+                    ref={commentInput}
+                    value={commentDraft}
+                    onChange={(e) => setCommentDraft(e.target.value.slice(0, 1000))}
+                    rows={2}
+                    maxLength={1000}
+                    placeholder="Say something to the future… emoji welcome ❤️🔥✨"
+                    aria-label="Write a comment"
+                    className="min-h-0 flex-1 resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void addComment()
+                    }}
+                  />
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Emoji picker"
+                      aria-expanded={emojiOpen}
+                      onClick={() => setEmojiOpen((o) => !o)}
+                    >
+                      <Smile className="h-4 w-4" aria-hidden />
+                    </Button>
+                    <Button type="button" size="sm" disabled={posting || !commentDraft.trim()} onClick={() => void addComment()}>
+                      {posting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden /> : <Send className="mr-1.5 h-3.5 w-3.5" aria-hidden />}
+                      Send
+                    </Button>
+                  </div>
+                </div>
+                <p className="mt-1 text-right text-[11px] text-muted-foreground">{commentDraft.length}/1,000 · ⌘/Ctrl+Enter to send</p>
+              </div>
+            ) : (
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed p-4">
+                <p className="text-sm text-muted-foreground">Join the conversation — the capsule is open and the future is listening.</p>
+                <Button size="sm" onClick={() => openAuth('login')}>Sign in to comment</Button>
+              </div>
+            )}
+          </>
         )}
       </section>
 
