@@ -31,6 +31,7 @@ model User {
   posts         Post[]
   media         Media[]
   reactions     Reaction[]
+  comments  Comment[]
   reports       Report[]
   diary         DiaryEntry[]
   notifications Notification[]
@@ -85,6 +86,7 @@ model Post {
 
   media     Media[]
   reactions Reaction[]
+  comments  Comment[]
   reports   Report[]
 
   @@index([magicKeyLookup])
@@ -166,6 +168,23 @@ model Reaction {
   createdAt DateTime @default(now())
 
   @@unique([postId, userId])
+}
+
+// The conversation around an OPENED capsule - TikTok/Instagram style.
+// The room opens when the capsule does: while a capsule is sealed there
+// is nothing to talk about yet, so no comments exist for it. Emoji are
+// always welcome - the future is spoken to in the language people use.
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String // 1-1,000 characters, emoji encouraged
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+  @@index([userId])
 }
 
 model Report {
